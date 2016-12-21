@@ -35,6 +35,8 @@ tar -xzf /tmp/godep -C /tmp
 $BUILDPACK_PATH/compile-extensions/bin/download_dependency glide /tmp
 tar -xzf /tmp/glide -C /tmp
 PATH=/tmp/bin:$PATH
+$BUILDPACK_PATH/compile-extensions/bin/check_buildpack_version $BUILDPACK_PATH $cache
+$BUILDPACK_PATH/compile-extensions/bin/store_buildpack_metadata $BUILDPACK_PATH $cache
 # END CF Common
 
 handleDefaultPkgSpec() {
