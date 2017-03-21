@@ -2,8 +2,10 @@ package main_test
 
 import (
 	c "compile"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"bytes"
 
@@ -64,10 +66,79 @@ var _ = Describe("Compile", func() {
 		Expect(err).To(BeNil())
 	})
 
-	It("Works", func() {
-		err = gc.Compile()
-		Expect(err).To(BeNil())
+	Describe("InstallGodep", func() {
+		var (
+			oldPath string
+			tempDir string
+		)
 
-		Expect(buffer.String()).To(Equal("       It works!\n"))
+		BeforeEach(func() {
+			oldPath = os.Getenv("PATH")
+			tempDir, err = ioutil.TempDir("", "go-buildpack.tmp")
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			err = os.Setenv("PATH", oldPath)
+			Expect(err).To(BeNil())
+		})
+
+		It("installs godep to the requested dir, adding it to the PATH", func() {
+			dep := libbuildpack.Dependency{Name: "godep", Version: "v1.2.3"}
+			installDir := filepath.Join(tempDir, "godep")
+
+			mockManifest.EXPECT().DefaultVersion("godep").Return(dep, nil)
+			mockManifest.EXPECT().InstallDependency(dep, installDir).Return(nil)
+
+			err = gc.InstallGodep(installDir)
+			Expect(err).To(BeNil())
+
+			Expect(installDir).To(BeADirectory())
+
+			newPath := os.Getenv("PATH")
+			Expect(newPath).To(Equal(fmt.Sprintf("%s:%s", filepath.Join(installDir, "bin"), oldPath)))
+
+			Expect(buffer.String()).To(ContainSubstring("-----> Installing godep"))
+			Expect(buffer.String()).To(ContainSubstring("       godep version: v1.2.3"))
+
+		})
 	})
+	Describe("InstallGlide", func() {
+		var (
+			oldPath string
+			tempDir string
+		)
+
+		BeforeEach(func() {
+			oldPath = os.Getenv("PATH")
+			tempDir, err = ioutil.TempDir("", "go-buildpack.tmp")
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			err = os.Setenv("PATH", oldPath)
+			Expect(err).To(BeNil())
+		})
+
+		It("installs godep to the requested dir, adding it to the PATH", func() {
+			dep := libbuildpack.Dependency{Name: "glide", Version: "v5.6.7"}
+			installDir := filepath.Join(tempDir, "glide")
+
+			mockManifest.EXPECT().DefaultVersion("glide").Return(dep, nil)
+			mockManifest.EXPECT().InstallDependency(dep, installDir).Return(nil)
+
+			err = gc.InstallGlide(installDir)
+			Expect(err).To(BeNil())
+
+			Expect(installDir).To(BeADirectory())
+
+			newPath := os.Getenv("PATH")
+			Expect(newPath).To(Equal(fmt.Sprintf("%s:%s", filepath.Join(installDir, "bin"), oldPath)))
+
+			Expect(buffer.String()).To(ContainSubstring("-----> Installing glide"))
+			Expect(buffer.String()).To(ContainSubstring("       glide version: v5.6.7"))
+
+		})
+	})
+
 })
