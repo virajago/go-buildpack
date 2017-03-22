@@ -2,6 +2,14 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "github.com/Masterminds/semver",
+			"repository": "https://github.com/Masterminds/semver",
+			"vcs": "git",
+			"revision": "312afcd0e81e5cf81fdc3cfd0e8504ae031521c8",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/cloudfoundry/libbuildpack",
 			"repository": "https://github.com/cloudfoundry/libbuildpack",
 			"vcs": "git",

@@ -15,6 +15,11 @@ type GoCompiler struct {
 	Compiler *libbuildpack.Compiler
 }
 
+type godepsJSON struct {
+	ImportPath string `json:"ImportPath"`
+	GoVersion  string `json:"GoVersion"`
+}
+
 func main() {
 	compiler, err := libbuildpack.NewCompiler(os.Args[1:], libbuildpack.NewLogger())
 	err = compiler.CheckBuildpackValid()
@@ -49,12 +54,19 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	_, _, _, err = gc.SelectVendorTool()
+	_, goVersion, _, err := gc.SelectVendorTool()
 	if err != nil {
-		gc.Compiler.Log.Error("Unable to select go vendor tool: %s", err.Error())
+		gc.Compiler.Log.Error("Unable to select Go vendor tool: %s", err.Error())
 		return err
 	}
 
+	expandedGoVersion, err := gc.ExpandGoVersion(goVersion)
+	if err != nil {
+		gc.Compiler.Log.Error("Unable to expand Go version %s tool: %s", goVersion, err.Error())
+		return err
+	}
+
+	fmt.Println(expandedGoVersion)
 	return nil
 }
 
@@ -100,11 +112,6 @@ func (gc *GoCompiler) InstallGlide(installDir string) error {
 	}
 
 	return addToPath(filepath.Join(installDir, "bin"))
-}
-
-type godepsJSON struct {
-	ImportPath string `json:"ImportPath"`
-	GoVersion  string `json:"GoVersion"`
 }
 
 func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName string, err error) {
@@ -192,6 +199,21 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName s
 	}
 
 	return "go_nativevendoring", goVersion, envPackageName, nil
+}
+
+func (gc *GoCompiler) ExpandGoVersion(partialGoVersion string) (string, error) {
+	existingVersions := gc.Compiler.Manifest.AllDependencyVersions("go")
+
+	if len(strings.Split(partialGoVersion, ".")) == 2 {
+		partialGoVersion += ".x"
+	}
+
+	expandedVer, err := libbuildpack.FindMatchingVersion(partialGoVersion, existingVersions)
+	if err != nil {
+		return "", err
+	}
+
+	return expandedVer, nil
 }
 
 func (gc *GoCompiler) isGB() (bool, error) {

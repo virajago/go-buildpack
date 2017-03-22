@@ -385,4 +385,30 @@ var _ = Describe("Compile", func() {
 			})
 		})
 	})
+
+	Describe("ExpandGoVersion", func() {
+		BeforeEach(func() {
+			versions := []string{"1.8.0", "1.7.5", "1.7.4", "1.6.3", "1.6.4"}
+			mockManifest.EXPECT().AllDependencyVersions("go").Return(versions)
+		})
+
+		Context("a fully specified version is passed in", func() {
+			It("returns the same value", func() {
+				ver, err := gc.ExpandGoVersion("1.7.4")
+				Expect(err).To(BeNil())
+
+				Expect(ver).To(Equal("1.7.4"))
+			})
+		})
+
+		Context("a version line is passed in", func() {
+			It("returns the latest version of that line", func() {
+				ver, err := gc.ExpandGoVersion("1.6")
+				Expect(err).To(BeNil())
+
+				Expect(ver).To(Equal("1.6.4"))
+			})
+		})
+
+	})
 })
