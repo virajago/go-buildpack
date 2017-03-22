@@ -229,7 +229,41 @@ func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
 }
 
 func (gc *GoCompiler) InstallGo(goVersion string) error {
-	return nil
+	err := os.MkdirAll(filepath.Join(gc.Compiler.BuildDir, "bin"), 0755)
+	if err != nil {
+		return err
+	}
+
+	goInstallDir := filepath.Join(gc.Compiler.CacheDir, "go"+goVersion)
+
+	goInstalled, err := libbuildpack.FileExists(filepath.Join(goInstallDir, "go"))
+	if err != nil {
+		return err
+	}
+
+	if goInstalled {
+		gc.Compiler.Log.BeginStep("Using go%s", goVersion)
+	} else {
+		gc.Compiler.Log.BeginStep("Installing go%s", goVersion)
+
+		err = os.MkdirAll(goInstallDir, 0755)
+		if err != nil {
+			return err
+		}
+
+		dep := libbuildpack.Dependency{Name: "go", Version: goVersion}
+		err = gc.Compiler.Manifest.InstallDependency(dep, goInstallDir)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = os.Setenv("GOROOT", filepath.Join(goInstallDir, "go"))
+	if err != nil {
+		return err
+	}
+
+	return os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), filepath.Join(goInstallDir, "go", "bin")))
 }
 
 func (gc *GoCompiler) CheckBinDirectory() error {
