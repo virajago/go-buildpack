@@ -264,6 +264,11 @@ func (gc *GoCompiler) InstallGo(goVersion string) error {
 	} else {
 		gc.Compiler.Log.BeginStep("Installing go%s", goVersion)
 
+		err = gc.clearCache()
+		if err != nil {
+			return fmt.Errorf("clearing cache: %s", err.Error())
+		}
+
 		err = os.MkdirAll(goInstallDir, 0755)
 		if err != nil {
 			return err
@@ -282,6 +287,22 @@ func (gc *GoCompiler) InstallGo(goVersion string) error {
 	}
 
 	return os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), filepath.Join(goInstallDir, "go", "bin")))
+}
+
+func (gc *GoCompiler) clearCache() error {
+	files, err := ioutil.ReadDir(gc.Compiler.CacheDir)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		err = os.RemoveAll(filepath.Join(gc.Compiler.CacheDir, file.Name()))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (gc *GoCompiler) isGB() (bool, error) {

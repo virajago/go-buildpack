@@ -509,11 +509,23 @@ var _ = Describe("Compile", func() {
 		})
 
 		Context("go is not already cached", func() {
+			BeforeEach(func() {
+				err = os.MkdirAll(filepath.Join(cacheDir, "go4.3.2", "go"), 0755)
+				Expect(err).To(BeNil())
+			})
+
 			It("installs go", func() {
 				err = gc.InstallGo("1.3.4")
 				Expect(err).To(BeNil())
 
 				Expect(buffer.String()).To(ContainSubstring("-----> Installing go1.3.4"))
+			})
+
+			It("clears the cache", func() {
+				err = gc.InstallGo("1.3.4")
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(cacheDir, "go4.3.2", "go")).NotTo(BeADirectory())
 			})
 
 			It("creates the install directory", func() {
