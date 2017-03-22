@@ -157,6 +157,20 @@ var _ = Describe("Compile", func() {
 				})
 			})
 		})
+
+		Context("there is a .godir file", func() {
+			BeforeEach(func() {
+				err = ioutil.WriteFile(filepath.Join(buildDir, ".godir"), []byte("xxx"), 0644)
+			})
+
+			It("logs that .godir is deprecated and returns an error", func() {
+				_, _, _, err := gc.SelectVendorTool()
+				Expect(err).NotTo(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("**ERROR** Deprecated, .godir file found! Please update to supported Godep or Glide dependency managers."))
+				Expect(buffer.String()).To(ContainSubstring("See https://github.com/tools/godep or https://github.com/Masterminds/glide for usage information."))
+			})
+		})
 	})
 
 	Describe("Installing vendor tools", func() {

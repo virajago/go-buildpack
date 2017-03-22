@@ -129,6 +129,16 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName s
 
 		return "godep", goVersion, godeps.ImportPath, nil
 	}
+	godirFile := filepath.Join(gc.Compiler.BuildDir, ".godir")
+	isGodir, err := libbuildpack.FileExists(godirFile)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	if isGodir {
+		gc.Compiler.Log.Error(godirError())
+		return "", "", "", fmt.Errorf(".godir deprecated")
+	}
 
 	return "", "", "", nil
 }
