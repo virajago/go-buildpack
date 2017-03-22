@@ -62,7 +62,13 @@ func (gc *GoCompiler) Compile() error {
 
 	expandedGoVersion, err := gc.ExpandGoVersion(goVersion)
 	if err != nil {
-		gc.Compiler.Log.Error("Unable to expand Go version %s tool: %s", goVersion, err.Error())
+		gc.Compiler.Log.Error("Unable to expand Go version %s: %s", goVersion, err.Error())
+		return err
+	}
+
+	err = gc.CheckBinDirectory()
+	if err != nil {
+		gc.Compiler.Log.Error("Error checking bin directory: %s", err.Error())
 		return err
 	}
 
@@ -214,6 +220,24 @@ func (gc *GoCompiler) ExpandGoVersion(partialGoVersion string) (string, error) {
 	}
 
 	return expandedVer, nil
+}
+
+func (gc *GoCompiler) CheckBinDirectory() error {
+	fi, err := os.Stat(filepath.Join(gc.Compiler.BuildDir, "bin"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	if fi.Mode().IsDir() {
+		return nil
+	}
+
+	gc.Compiler.Log.Error("File bin exists and is not a directory.")
+	return errors.New("invalid bin")
 }
 
 func (gc *GoCompiler) isGB() (bool, error) {

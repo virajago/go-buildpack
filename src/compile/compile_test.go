@@ -411,4 +411,38 @@ var _ = Describe("Compile", func() {
 		})
 
 	})
+	Describe("CheckBinDirectory", func() {
+		Context("no directory exists", func() {
+			It("returns nil", func() {
+				err = gc.CheckBinDirectory()
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("a bin directory exists", func() {
+			BeforeEach(func() {
+				err = os.MkdirAll(filepath.Join(buildDir, "bin"), 0755)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns nil", func() {
+				err := gc.CheckBinDirectory()
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("a bin file exists", func() {
+			BeforeEach(func() {
+				err = ioutil.WriteFile(filepath.Join(buildDir, "bin"), []byte("xxx"), 0644)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns and logs an error", func() {
+				err := gc.CheckBinDirectory()
+				Expect(err).NotTo(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("**ERROR** File bin exists and is not a directory."))
+			})
+		})
+	})
 })
