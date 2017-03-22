@@ -34,8 +34,6 @@ func main() {
 }
 
 func (gc *GoCompiler) Compile() error {
-	gc.Compiler.Log.Info("It works!")
-
 	err := gc.InstallGodep("/tmp/godep")
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to install godep: %s", err.Error())
@@ -48,9 +46,10 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	//err = gc.DetermineVendorTool()
+	_, _, _, err = gc.SelectVendorTool()
 	if err != nil {
-
+		gc.Compiler.Log.Error("Unable to select go vendor tool: %s", err.Error())
+		return err
 	}
 
 	return nil
@@ -98,6 +97,40 @@ func (gc *GoCompiler) InstallGlide(installDir string) error {
 	}
 
 	return addToPath(filepath.Join(installDir, "bin"))
+}
+
+type godepsJSON struct {
+	ImportPath string `json:"ImportPath"`
+	GoVersion  string `json:"GoVersion"`
+}
+
+func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName string, err error) {
+	godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
+	isGodep, err := libbuildpack.FileExists(godepsJSONFile)
+	if err != nil {
+		return "", "", "", err
+	}
+	if isGodep {
+		gc.Compiler.Log.BeginStep("Checking Godeps/Godeps.json file")
+		var godeps godepsJSON
+		err = libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+		if err != nil {
+			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
+			return "", "", "", err
+		}
+
+		envGoVersion := os.Getenv("GOVERSION")
+		if envGoVersion != "" {
+			goVersion = envGoVersion
+			gc.Compiler.Log.Warning(goVersionOverride(envGoVersion))
+		} else {
+			goVersion = godeps.GoVersion
+		}
+
+		return "godep", goVersion, godeps.ImportPath, nil
+	}
+
+	return "", "", "", nil
 }
 
 func addToPath(newPaths string) error {
