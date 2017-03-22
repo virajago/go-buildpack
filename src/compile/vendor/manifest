@@ -5,7 +5,7 @@
 			"importpath": "github.com/cloudfoundry/libbuildpack",
 			"repository": "https://github.com/cloudfoundry/libbuildpack",
 			"vcs": "git",
-			"revision": "72c85e7a8f7f9e334dca74a2701b5070001c3327",
+			"revision": "5ad6c4f5922d6f156c159c3bb1a558c005bfccff",
 			"branch": "master",
 			"notests": true
 		},
@@ -48,7 +48,7 @@
 			"importpath": "github.com/onsi/gomega",
 			"repository": "https://github.com/onsi/gomega",
 			"vcs": "git",
-			"revision": "c5ef0831376c8ddd17f7deb3d343d981d38a3c23",
+			"revision": "4ac488ac94a6dfbd2f7e01cc3bea24e2efc40663",
 			"branch": "master",
 			"notests": true
 		},
