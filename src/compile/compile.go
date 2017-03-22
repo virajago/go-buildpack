@@ -60,7 +60,7 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	expandedGoVersion, err := gc.ExpandGoVersion(goVersion)
+	parsedGoVersion, err := gc.ParseGoVersion(goVersion)
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to expand Go version %s: %s", goVersion, err.Error())
 		return err
@@ -72,7 +72,11 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	fmt.Println(expandedGoVersion)
+	err = gc.InstallGo(parsedGoVersion)
+	if err != nil {
+		gc.Compiler.Log.Error("Error installing Go: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -207,19 +211,25 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName s
 	return "go_nativevendoring", goVersion, envPackageName, nil
 }
 
-func (gc *GoCompiler) ExpandGoVersion(partialGoVersion string) (string, error) {
+func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
 	existingVersions := gc.Compiler.Manifest.AllDependencyVersions("go")
 
 	if len(strings.Split(partialGoVersion, ".")) == 2 {
 		partialGoVersion += ".x"
 	}
 
-	expandedVer, err := libbuildpack.FindMatchingVersion(partialGoVersion, existingVersions)
+	strippedGoVersion := strings.TrimLeft(partialGoVersion, "go")
+
+	expandedVer, err := libbuildpack.FindMatchingVersion(strippedGoVersion, existingVersions)
 	if err != nil {
 		return "", err
 	}
 
 	return expandedVer, nil
+}
+
+func (gc *GoCompiler) InstallGo(goVersion string) error {
+	return nil
 }
 
 func (gc *GoCompiler) CheckBinDirectory() error {

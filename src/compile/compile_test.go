@@ -394,7 +394,7 @@ var _ = Describe("Compile", func() {
 
 		Context("a fully specified version is passed in", func() {
 			It("returns the same value", func() {
-				ver, err := gc.ExpandGoVersion("1.7.4")
+				ver, err := gc.ParseGoVersion("go1.7.4")
 				Expect(err).To(BeNil())
 
 				Expect(ver).To(Equal("1.7.4"))
@@ -403,7 +403,7 @@ var _ = Describe("Compile", func() {
 
 		Context("a version line is passed in", func() {
 			It("returns the latest version of that line", func() {
-				ver, err := gc.ExpandGoVersion("1.6")
+				ver, err := gc.ParseGoVersion("go1.6")
 				Expect(err).To(BeNil())
 
 				Expect(ver).To(Equal("1.6.4"))
