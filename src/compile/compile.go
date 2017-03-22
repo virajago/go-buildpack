@@ -140,6 +140,26 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName s
 		return "", "", "", fmt.Errorf(".godir deprecated")
 	}
 
+	glideFile := filepath.Join(gc.Compiler.BuildDir, "glide.yaml")
+	isGlide, err := libbuildpack.FileExists(glideFile)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	if isGlide {
+		envGoVersion := os.Getenv("GOVERSION")
+		if envGoVersion != "" {
+			goVersion = envGoVersion
+		} else {
+			defaultGo, err := gc.Compiler.Manifest.DefaultVersion("go")
+			if err != nil {
+				return "", "", "", err
+			}
+			goVersion = fmt.Sprintf("go%s", defaultGo.Version)
+		}
+		return "glide", goVersion, "", nil
+	}
+
 	return "", "", "", nil
 }
 

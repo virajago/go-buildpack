@@ -171,6 +171,61 @@ var _ = Describe("Compile", func() {
 				Expect(buffer.String()).To(ContainSubstring("See https://github.com/tools/godep or https://github.com/Masterminds/glide for usage information."))
 			})
 		})
+
+		Context("there is a glide.yaml file", func() {
+			BeforeEach(func() {
+				err = ioutil.WriteFile(filepath.Join(buildDir, "glide.yaml"), []byte("xxx"), 0644)
+				dep := libbuildpack.Dependency{Name: "go", Version: "1.14.3"}
+
+				mockManifest.EXPECT().DefaultVersion("go").Return(dep, nil)
+			})
+
+			It("returns glide", func() {
+				tool, _, _, err := gc.SelectVendorTool()
+				Expect(err).To(BeNil())
+
+				Expect(tool).To(Equal("glide"))
+			})
+
+			It("returns empty string as the package name", func() {
+				_, _, packageName, err := gc.SelectVendorTool()
+				Expect(err).To(BeNil())
+
+				Expect(packageName).To(Equal(""))
+			})
+
+			Context("GOVERSION is not set", func() {
+				It("returns the default go version from the manifest.yml", func() {
+
+					_, goVersion, _, err := gc.SelectVendorTool()
+					Expect(err).To(BeNil())
+
+					Expect(goVersion).To(Equal("go1.14.3"))
+				})
+			})
+
+			Context("GOVERSION is set", func() {
+				var oldGOVERSION string
+
+				BeforeEach(func() {
+					oldGOVERSION = os.Getenv("GOVERSION")
+					err = os.Setenv("GOVERSION", "go34.34")
+					Expect(err).To(BeNil())
+				})
+
+				AfterEach(func() {
+					err = os.Setenv("GOVERSION", oldGOVERSION)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns the go version from GOVERSION", func() {
+					_, goVersion, _, err := gc.SelectVendorTool()
+					Expect(err).To(BeNil())
+
+					Expect(goVersion).To(Equal("go34.34"))
+				})
+			})
+		})
 	})
 
 	Describe("Installing vendor tools", func() {
