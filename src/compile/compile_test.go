@@ -246,6 +246,83 @@ var _ = Describe("Compile", func() {
 
 			})
 		})
+
+		Context("none of the above", func() {
+			BeforeEach(func() {
+				dep := libbuildpack.Dependency{Name: "go", Version: "2.0.1"}
+				mockManifest.EXPECT().DefaultVersion("go").Return(dep, nil)
+			})
+
+			Context("GOPACKAGENAME is not set", func() {
+				It("logs an error", func() {
+					_, _, _, err := gc.SelectVendorTool()
+					Expect(err).NotTo(BeNil())
+
+					Expect(buffer.String()).To(ContainSubstring("**ERROR** To use go native vendoring set the $GOPACKAGENAME"))
+					Expect(buffer.String()).To(ContainSubstring("environment variable to your app's package name"))
+				})
+			})
+
+			Context("GOPACKAGENAME is set", func() {
+				var oldGOPACKAGENAME string
+
+				BeforeEach(func() {
+					oldGOPACKAGENAME = os.Getenv("GOPACKAGENAME")
+					err = os.Setenv("GOPACKAGENAME", "my-go-app")
+					Expect(err).To(BeNil())
+				})
+
+				AfterEach(func() {
+					err = os.Setenv("GOPACKAGENAME", oldGOPACKAGENAME)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns go_nativevendoring", func() {
+					tool, _, _, err := gc.SelectVendorTool()
+					Expect(err).To(BeNil())
+
+					Expect(tool).To(Equal("go_nativevendoring"))
+				})
+
+				It("returns the package name from GOPACKAGENAME", func() {
+					_, _, goPackageName, err := gc.SelectVendorTool()
+					Expect(err).To(BeNil())
+
+					Expect(goPackageName).To(Equal("my-go-app"))
+				})
+
+				Context("GOVERSION is not set", func() {
+					It("returns the default go version from the manifest.yml", func() {
+						_, goVersion, _, err := gc.SelectVendorTool()
+						Expect(err).To(BeNil())
+
+						Expect(goVersion).To(Equal("go2.0.1"))
+					})
+				})
+
+				Context("GOVERSION is set", func() {
+					var oldGOVERSION string
+
+					BeforeEach(func() {
+						oldGOVERSION = os.Getenv("GOVERSION")
+						err = os.Setenv("GOVERSION", "go4.4")
+						Expect(err).To(BeNil())
+					})
+
+					AfterEach(func() {
+						err = os.Setenv("GOVERSION", oldGOVERSION)
+						Expect(err).To(BeNil())
+					})
+
+					It("returns the go version from GOVERSION", func() {
+						_, goVersion, _, err := gc.SelectVendorTool()
+						Expect(err).To(BeNil())
+
+						Expect(goVersion).To(Equal("go4.4"))
+					})
+				})
+			})
+		})
 	})
 
 	Describe("Installing vendor tools", func() {

@@ -171,10 +171,27 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName s
 	if isGB {
 		gc.Compiler.Log.Error(gbError())
 		return "", "", "", errors.New("gb unsupported")
+	}
+
+	envPackageName := os.Getenv("GOPACKAGENAME")
+	if envPackageName == "" {
+		gc.Compiler.Log.Error(noGOPACKAGENAMEerror())
+		return "", "", "", errors.New("GOPACKAGENAME unset")
 
 	}
 
-	return "", "", "", nil
+	envGoVersion := os.Getenv("GOVERSION")
+	if envGoVersion != "" {
+		goVersion = envGoVersion
+	} else {
+		defaultGo, err := gc.Compiler.Manifest.DefaultVersion("go")
+		if err != nil {
+			return "", "", "", err
+		}
+		goVersion = fmt.Sprintf("go%s", defaultGo.Version)
+	}
+
+	return "go_nativevendoring", goVersion, envPackageName, nil
 }
 
 func (gc *GoCompiler) isGB() (bool, error) {

@@ -26,3 +26,10 @@ For support please file an issue: https://github.com/cloudfoundry/go-buildpack/i
 
 	return errorMessage
 }
+
+func noGOPACKAGENAMEerror() string {
+	errorMessage := `To use go native vendoring set the $GOPACKAGENAME
+environment variable to your app's package name`
+
+	return errorMessage
+}
