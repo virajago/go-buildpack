@@ -226,6 +226,26 @@ var _ = Describe("Compile", func() {
 				})
 			})
 		})
+
+		Context("the app contains src/**/**/*.go", func() {
+			BeforeEach(func() {
+				err = os.MkdirAll(filepath.Join(buildDir, "src", "package"), 0755)
+				Expect(err).To(BeNil())
+
+				err = ioutil.WriteFile(filepath.Join(buildDir, "src", "package", "thing.go"), []byte("xxx"), 0644)
+				Expect(err).To(BeNil())
+			})
+
+			It("logs that gb is deprecated and returns an error", func() {
+				_, _, _, err := gc.SelectVendorTool()
+				Expect(err).NotTo(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("**ERROR** Cloud Foundry does not support the GB package manager."))
+				Expect(buffer.String()).To(ContainSubstring("We currently only support the Godep and Glide package managers for go apps"))
+				Expect(buffer.String()).To(ContainSubstring("For support please file an issue: https://github.com/cloudfoundry/go-buildpack/issues"))
+
+			})
+		})
 	})
 
 	Describe("Installing vendor tools", func() {

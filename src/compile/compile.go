@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudfoundry/libbuildpack"
 )
@@ -137,7 +140,7 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName s
 
 	if isGodir {
 		gc.Compiler.Log.Error(godirError())
-		return "", "", "", fmt.Errorf(".godir deprecated")
+		return "", "", "", errors.New(".godir deprecated")
 	}
 
 	glideFile := filepath.Join(gc.Compiler.BuildDir, "glide.yaml")
@@ -160,7 +163,62 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName s
 		return "glide", goVersion, "", nil
 	}
 
+	isGB, err := gc.isGB()
+	if err != nil {
+		return "", "", "", err
+	}
+
+	if isGB {
+		gc.Compiler.Log.Error(gbError())
+		return "", "", "", errors.New("gb unsupported")
+
+	}
+
 	return "", "", "", nil
+}
+
+func (gc *GoCompiler) isGB() (bool, error) {
+	srcDir := filepath.Join(gc.Compiler.BuildDir, "src")
+	srcDirAtAppRoot, err := libbuildpack.FileExists(srcDir)
+	if err != nil {
+		return false, err
+	}
+
+	if !srcDirAtAppRoot {
+		return false, nil
+	}
+
+	files, err := ioutil.ReadDir(filepath.Join(gc.Compiler.BuildDir, "src"))
+	if err != nil {
+		return false, err
+	}
+
+	for _, file := range files {
+		if file.Mode().IsDir() {
+			err = filepath.Walk(filepath.Join(srcDir, file.Name()), isGoFile)
+			if err != nil {
+				if err.Error() == "found Go file" {
+					return true, nil
+				}
+
+				return false, err
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func isGoFile(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if strings.HasSuffix(path, ".go") {
+		return errors.New("found Go file")
+	}
+
+	return nil
 }
 
 func addToPath(newPaths string) error {
