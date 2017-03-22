@@ -228,6 +228,24 @@ func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
 	return expandedVer, nil
 }
 
+func (gc *GoCompiler) CheckBinDirectory() error {
+	fi, err := os.Stat(filepath.Join(gc.Compiler.BuildDir, "bin"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	if fi.Mode().IsDir() {
+		return nil
+	}
+
+	gc.Compiler.Log.Error("File bin exists and is not a directory.")
+	return errors.New("invalid bin")
+}
+
 func (gc *GoCompiler) InstallGo(goVersion string) error {
 	err := os.MkdirAll(filepath.Join(gc.Compiler.BuildDir, "bin"), 0755)
 	if err != nil {
@@ -264,24 +282,6 @@ func (gc *GoCompiler) InstallGo(goVersion string) error {
 	}
 
 	return os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), filepath.Join(goInstallDir, "go", "bin")))
-}
-
-func (gc *GoCompiler) CheckBinDirectory() error {
-	fi, err := os.Stat(filepath.Join(gc.Compiler.BuildDir, "bin"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-
-		return err
-	}
-
-	if fi.Mode().IsDir() {
-		return nil
-	}
-
-	gc.Compiler.Log.Error("File bin exists and is not a directory.")
-	return errors.New("invalid bin")
 }
 
 func (gc *GoCompiler) isGB() (bool, error) {
