@@ -67,6 +67,11 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
+	err = gc.InstallGo(goVersion)
+	if err != nil {
+		gc.Compiler.Log.Error("Error installing Go: %s", err.Error())
+	}
+
 	packageName, err := gc.PackageName(vendorTool)
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to determine import path: %s", err.Error())
@@ -78,11 +83,6 @@ func (gc *GoCompiler) Compile() error {
 	if err != nil {
 		gc.Compiler.Log.Error("Error checking bin directory: %s", err.Error())
 		return err
-	}
-
-	err = gc.InstallGo(goVersion)
-	if err != nil {
-		gc.Compiler.Log.Error("Error installing Go: %s", err.Error())
 	}
 
 	flags := gc.SetupBuildFlags(goVersion, vendorTool)
