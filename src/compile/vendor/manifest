@@ -13,7 +13,7 @@
 			"importpath": "github.com/cloudfoundry/libbuildpack",
 			"repository": "https://github.com/cloudfoundry/libbuildpack",
 			"vcs": "git",
-			"revision": "5ad6c4f5922d6f156c159c3bb1a558c005bfccff",
+			"revision": "a278ff62d5b378cfa9d647b44f8c75ce6378bd1c",
 			"branch": "master",
 			"notests": true
 		},
@@ -64,7 +64,7 @@
 			"importpath": "golang.org/x/sys/unix",
 			"repository": "https://go.googlesource.com/sys",
 			"vcs": "git",
-			"revision": "99f16d856c9836c42d24e7ab64ea72916925fa97",
+			"revision": "8fd966b47dbdd4faa03de0d06e3d733baeb9a1a9",
 			"branch": "master",
 			"path": "/unix",
 			"notests": true
