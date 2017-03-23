@@ -54,7 +54,7 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	_, goVersion, _, err := gc.SelectVendorTool()
+	vendorTool, goVersion, _, err := gc.SelectVendorTool()
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to select Go vendor tool: %s", err.Error())
 		return err
@@ -77,7 +77,23 @@ func (gc *GoCompiler) Compile() error {
 		gc.Compiler.Log.Error("Error installing Go: %s", err.Error())
 	}
 
+	flags := gc.SetupBuildFlags(parsedGoVersion, vendorTool)
+
+	fmt.Println(flags)
 	return nil
+}
+
+func (gc *GoCompiler) SetupBuildFlags(goVersion, tool string) []string {
+	flags := []string{"-tags cloudfoundry"}
+
+	if os.Getenv("GO_LINKER_SYMBOL") != "" && os.Getenv("GO_LINKER_VALUE") != "" {
+		flags = append(flags, fmt.Sprintf("-ldflags \"-X %s=%s\"", os.Getenv("GO_LINKER_SYMBOL"), os.Getenv("GO_LINKER_VALUE")))
+	}
+
+	if strings.Split(goVersion, ".")[0] == "1" && strings.Split(goVersion, ".")[1] == "6" && tool == "godep" {
+		flags = append(flags, "--buildmode=pie")
+	}
+	return flags
 }
 
 func (gc *GoCompiler) InstallGodep(installDir string) error {

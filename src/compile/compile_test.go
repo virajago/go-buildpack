@@ -535,6 +535,63 @@ var _ = Describe("Compile", func() {
 				Expect(filepath.Join(cacheDir, "go1.3.4")).To(BeADirectory())
 			})
 		})
+	})
+
+	Describe("SetupBuildFlags", func() {
+		Context("link environment variables not set", func() {
+			It("contains the correct tags", func() {
+				flags := gc.SetupBuildFlags("5.5.5", "go_nativevendoring")
+				Expect(flags).To(Equal([]string{"-tags cloudfoundry"}))
+			})
+		})
+
+		Context("the vendoring tool is godep", func() {
+			Context("the go version is 1.6.x", func() {
+				It("adds the buildmode flag", func() {
+					flags := gc.SetupBuildFlags("1.6.5", "godep")
+					Expect(flags).To(Equal([]string{"-tags cloudfoundry", "--buildmode=pie"}))
+				})
+
+			})
+			Context("the go version is not 1.6.x", func() {
+				It("contains the correct tags", func() {
+					flags := gc.SetupBuildFlags("5.5.5", "godep")
+					Expect(flags).To(Equal([]string{"-tags cloudfoundry"}))
+				})
+			})
+		})
+
+		Context("link environment variables are set set", func() {
+			var (
+				oldGoLinkerSymbol string
+				oldGoLinkerValue  string
+			)
+
+			BeforeEach(func() {
+				oldGoLinkerSymbol = os.Getenv("GO_LINKER_SYMBOL")
+				oldGoLinkerValue = os.Getenv("GO_LINKER_VALUE")
+
+				err = os.Setenv("GO_LINKER_SYMBOL", "package.main.thing")
+				Expect(err).To(BeNil())
+
+				err = os.Setenv("GO_LINKER_VALUE", "some_string")
+				Expect(err).To(BeNil())
+
+			})
+
+			AfterEach(func() {
+				err = os.Setenv("GO_LINKER_SYMBOL", oldGoLinkerSymbol)
+				Expect(err).To(BeNil())
+
+				err = os.Setenv("GO_LINKER_VALUE", oldGoLinkerValue)
+				Expect(err).To(BeNil())
+			})
+
+			It("contains the ldflags argument", func() {
+				flags := gc.SetupBuildFlags("5.5.5", "go_nativevendoring")
+				Expect(flags).To(Equal([]string{"-tags cloudfoundry", `-ldflags "-X package.main.thing=some_string"`}))
+			})
+		})
 
 	})
 })
