@@ -66,6 +66,13 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
+	packageName, err := gc.PackageName(vendorTool)
+	if err != nil {
+		gc.Compiler.Log.Error("Unable to determine import path: %s", err.Error())
+		return err
+	}
+	fmt.Println(packageName)
+
 	err = gc.CheckBinDirectory()
 	if err != nil {
 		gc.Compiler.Log.Error("Error checking bin directory: %s", err.Error())
@@ -80,7 +87,36 @@ func (gc *GoCompiler) Compile() error {
 	flags := gc.SetupBuildFlags(goVersion, vendorTool)
 
 	fmt.Println(flags)
+
 	return nil
+
+}
+
+func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
+	var packageName string
+
+	switch vendorTool {
+	case "godep":
+		godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
+		var godeps godepsJSON
+		err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+		if err != nil {
+			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
+			return "", err
+		}
+
+		packageName = godeps.ImportPath
+	case "go_nativevendoring":
+		packageName = os.Getenv("GOPACKAGENAME")
+		if packageName == "" {
+			gc.Compiler.Log.Error(noGOPACKAGENAMEerror())
+			return "", errors.New("GOPACKAGENAME unset")
+		}
+
+	default:
+		return "", errors.New("invalid vendor tool")
+	}
+	return packageName, nil
 }
 
 func (gc *GoCompiler) SelectGoVersion(vendorTool string) (string, error) {
@@ -121,7 +157,7 @@ func (gc *GoCompiler) SelectGoVersion(vendorTool string) (string, error) {
 		return "", errors.New("invalid vendor tool")
 	}
 
-	return goVersion, nil
+	return gc.ParseGoVersion(goVersion)
 }
 
 func (gc *GoCompiler) SetupGoPath(packageName string) (string, error) {

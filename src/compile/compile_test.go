@@ -215,7 +215,10 @@ var _ = Describe("Compile", func() {
 	})
 
 	Describe("SelectGoVersion", func() {
-
+		BeforeEach(func() {
+			versions := []string{"1.8.0", "1.7.5", "1.7.4", "1.6.3", "1.6.4", "34.34.0", "1.14.3"}
+			mockManifest.EXPECT().AllDependencyVersions("go").Return(versions)
+		})
 		Context("godep", func() {
 			var (
 				godepsJson         string
@@ -254,7 +257,7 @@ var _ = Describe("Compile", func() {
 						goVersion, err := gc.SelectGoVersion("godep")
 						Expect(err).To(BeNil())
 
-						Expect(goVersion).To(Equal("go1.6"))
+						Expect(goVersion).To(Equal("1.6.4"))
 					})
 				})
 
@@ -276,7 +279,7 @@ var _ = Describe("Compile", func() {
 						goVersion, err := gc.SelectGoVersion("godep")
 						Expect(err).To(BeNil())
 
-						Expect(goVersion).To(Equal("go34.34"))
+						Expect(goVersion).To(Equal("34.34.0"))
 						Expect(buffer.String()).To(ContainSubstring("**WARNING** Using $GOVERSION override.\n"))
 						Expect(buffer.String()).To(ContainSubstring("    $GOVERSION = go34.34\n"))
 						Expect(buffer.String()).To(ContainSubstring("If this isn't what you want please run:\n"))
@@ -310,7 +313,7 @@ var _ = Describe("Compile", func() {
 					goVersion, err := gc.SelectGoVersion("glide")
 					Expect(err).To(BeNil())
 
-					Expect(goVersion).To(Equal("go1.14.3"))
+					Expect(goVersion).To(Equal("1.14.3"))
 				})
 			})
 			Context("GOVERSION is set", func() {
@@ -331,14 +334,13 @@ var _ = Describe("Compile", func() {
 					goVersion, err := gc.SelectGoVersion("go_nativevendoring")
 					Expect(err).To(BeNil())
 
-					Expect(goVersion).To(Equal("go34.34"))
+					Expect(goVersion).To(Equal("34.34.0"))
 				})
-
 			})
 		})
 	})
 
-	Describe("ExpandGoVersion", func() {
+	Describe("ParseGoVersion", func() {
 		BeforeEach(func() {
 			versions := []string{"1.8.0", "1.7.5", "1.7.4", "1.6.3", "1.6.4"}
 			mockManifest.EXPECT().AllDependencyVersions("go").Return(versions)
@@ -653,6 +655,68 @@ var _ = Describe("Compile", func() {
 				Expect(err).To(BeNil())
 
 				Expect(os.Getenv("GOBIN")).To(Equal(oldGoBin))
+			})
+		})
+	})
+
+	Describe("PackageName", func() {
+		Context("the vendor tool is godep", func() {
+			BeforeEach(func() {
+				godepsJsonContents := `
+{
+	"ImportPath": "go-online",
+	"GoVersion": "go1.6",
+	"Deps": []
+}					
+`
+				err = os.MkdirAll(filepath.Join(buildDir, "Godeps"), 0755)
+				Expect(err).To(BeNil())
+
+				godepsJson := filepath.Join(buildDir, "Godeps", "Godeps.json")
+				err = ioutil.WriteFile(godepsJson, []byte(godepsJsonContents), 0644)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns the package name from Godeps.json", func() {
+				goPackageName, err := gc.PackageName("godep")
+				Expect(err).To(BeNil())
+
+				Expect(goPackageName).To(Equal("go-online"))
+			})
+		})
+
+		Context("the vendor tool is glide", func() {})
+
+		Context("the vendor tool is go_nativevendoring", func() {
+			Context("GOPACKAGENAME is not set", func() {
+				It("logs an error", func() {
+					_, err := gc.PackageName("go_nativevendoring")
+					Expect(err).NotTo(BeNil())
+
+					Expect(buffer.String()).To(ContainSubstring("**ERROR** To use go native vendoring set the $GOPACKAGENAME"))
+					Expect(buffer.String()).To(ContainSubstring("environment variable to your app's package name"))
+				})
+			})
+			Context("GOPACKAGENAME is set", func() {
+				var oldGOPACKAGENAME string
+
+				BeforeEach(func() {
+					oldGOPACKAGENAME = os.Getenv("GOPACKAGENAME")
+					err = os.Setenv("GOPACKAGENAME", "my-go-app")
+					Expect(err).To(BeNil())
+				})
+
+				AfterEach(func() {
+					err = os.Setenv("GOPACKAGENAME", oldGOPACKAGENAME)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns the package name from GOPACKAGENAME", func() {
+					goPackageName, err := gc.PackageName("go_nativevendoring")
+					Expect(err).To(BeNil())
+
+					Expect(goPackageName).To(Equal("my-go-app"))
+				})
 			})
 		})
 	})
