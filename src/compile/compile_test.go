@@ -695,7 +695,7 @@ var _ = Describe("Compile", func() {
 				mockCommandRunner.EXPECT().SetStdout(gomock.Any()).Do(func(buffer *bytes.Buffer) {
 					(*buffer).Write([]byte("go-package-name"))
 				})
-				mockCommandRunner.EXPECT().SetStderr(ioutil.Discard)
+				mockCommandRunner.EXPECT().SetStderr(gomock.Any())
 				mockCommandRunner.EXPECT().SetDir(buildDir)
 
 				mockCommandRunner.EXPECT().Run("glide", "name").Return(nil)
@@ -738,6 +738,91 @@ var _ = Describe("Compile", func() {
 					Expect(goPackageName).To(Equal("my-go-app"))
 				})
 			})
+		})
+	})
+
+	Describe("AllPackages", func() {
+		var (
+			packageDir string
+			vendorTool string
+		)
+
+		BeforeEach(func() {
+			packageDir, err = ioutil.TempDir("", "go-buildpack.package")
+			Expect(err).To(BeNil())
+		})
+
+		Context("the vendor tool is godep", func() {
+			BeforeEach(func() {
+				vendorTool = "godep"
+				godepsJsonContents := `
+{
+	"ImportPath": "go-online",
+	"GoVersion": "go1.6",
+	"Deps": [],
+	"Packages": ["foo", "bar"]
+}					
+`
+				err = os.MkdirAll(filepath.Join(packageDir, "Godeps"), 0755)
+				Expect(err).To(BeNil())
+
+				godepsJson := filepath.Join(packageDir, "Godeps", "Godeps.json")
+				err = ioutil.WriteFile(godepsJson, []byte(godepsJsonContents), 0644)
+				Expect(err).To(BeNil())
+			})
+
+			Context("GO_INSTALL_PACKAGE_SPEC is set", func() {
+
+			})
+			Context("GO_INSTALL_PACKAGE_SPEC is not set", func() {
+				Context("go 1.7 or later with GO15VENDOREXPERIMENT set", func() {
+					var oldGO15VENDOREXPERIMENT string
+
+					BeforeEach(func() {
+						oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
+						err = os.Setenv("GOPACKAGENAME", "0")
+						Expect(err).To(BeNil())
+					})
+
+					AfterEach(func() {
+						err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
+						Expect(err).To(BeNil())
+					})
+
+					It("errors out with a warning messaage", func() {
+						_, err := gc.AllPackages(packageDir, "1.8.3", vendorTool)
+						Expect(err).NotTo(BeNil())
+
+						Expect(buffer.String).To(ContainSubstring("**ERROR** GO15VENDOREXPERIMENT is set, but is not supported by go1.7 or later"))
+						Expect(buffer.String).To(ContainSubstring("run `cf unset-env <app> GO15VENDOREXPERIMENT`"))
+						Expect(buffer.String).To(ContainSubstring("before pushing again"))
+					})
+				})
+
+				Context("go 1.6.x with GO15VENDOREXPERIMENT=0", func() {
+					var oldGO15VENDOREXPERIMENT string
+
+					BeforeEach(func() {
+						oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
+						err = os.Setenv("GOPACKAGENAME", "0")
+						Expect(err).To(BeNil())
+					})
+
+					AfterEach(func() {
+						err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
+						Expect(err).To(BeNil())
+					})
+
+					It("uses the packages from Godeps.json", func() {
+						packages, err := gc.AllPackages(packageDir, "1.6.3", vendorTool)
+						Expect(err).To(BeNil())
+
+						Expect(packages).To(Equal([]string{"foo", "bar"}))
+					})
+				})
+			})
+			Context("package is default", func() {})
+
 		})
 	})
 })

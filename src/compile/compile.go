@@ -17,8 +17,9 @@ type GoCompiler struct {
 }
 
 type godepsJSON struct {
-	ImportPath string `json:"ImportPath"`
-	GoVersion  string `json:"GoVersion"`
+	ImportPath string   `json:"ImportPath"`
+	GoVersion  string   `json:"GoVersion"`
+	Packages   []string `json:"Packages"`
 }
 
 func main() {
@@ -77,7 +78,6 @@ func (gc *GoCompiler) Compile() error {
 		gc.Compiler.Log.Error("Unable to determine import path: %s", err.Error())
 		return err
 	}
-	fmt.Println(packageName)
 
 	err = gc.CheckBinDirectory()
 	if err != nil {
@@ -85,12 +85,72 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	flags := gc.SetupBuildFlags(goVersion, vendorTool)
+	packageDir, err := gc.SetupGoPath(packageName)
+	if err != nil {
+		gc.Compiler.Log.Error("Error checking bin directory: %s", err.Error())
+		return err
+	}
 
-	fmt.Println(flags)
+	err = gc.CompileApp(packageDir, goVersion, vendorTool)
+
+	fmt.Println(packageDir)
 
 	return nil
 
+}
+
+func (gc *GoCompiler) CompileApp(packageDir, goVersion, vendorTool string) error {
+	err := os.Setenv("GIT_DIR", "")
+	if err != nil {
+		return err
+	}
+
+	flags := gc.SetupBuildFlags(goVersion, vendorTool)
+	packages, _ := gc.AllPackages(packageDir, goVersion, vendorTool)
+	fmt.Println(flags)
+	fmt.Println(packages)
+
+	switch vendorTool {
+	case "godep":
+	case "glide":
+	case "go_nativevendoring":
+	default:
+		return errors.New("invalid vendor tool")
+	}
+
+	return nil
+}
+
+func (gc *GoCompiler) AllPackages(packageDir, goVersion, vendorTool string) ([]string, error) {
+	var packages []string
+
+	switch vendorTool {
+	case "godep":
+		go16 := strings.Split(goVersion, ".")[0] == "1" && strings.Split(goVersion, ".")[1] == "6"
+		if os.Getenv("GO15VENDOREXPERIMENT") != "" {
+			if !go16 {
+				gc.Compiler.Log.Error("something")
+				return nil, errors.New("why")
+			}
+
+		}
+
+		godepsJSONFile := filepath.Join(packageDir, "Godeps", "Godeps.json")
+		var godeps godepsJSON
+		err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+		if err != nil {
+			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
+			return nil, err
+		}
+		packages = godeps.Packages
+
+	case "glide":
+	case "go_nativevendoring":
+	default:
+		return nil, errors.New("invalid vendor tool")
+	}
+
+	return packages, nil
 }
 
 func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
@@ -108,19 +168,21 @@ func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
 		packageName = godeps.ImportPath
 
 	case "glide":
-		outputBuffer := new(bytes.Buffer)
+		stdout := new(bytes.Buffer)
+		stderr := new(bytes.Buffer)
 
-		gc.Compiler.Command.SetStdout(outputBuffer)
-		gc.Compiler.Command.SetStderr(ioutil.Discard)
+		gc.Compiler.Command.SetStdout(stdout)
+		gc.Compiler.Command.SetStderr(stderr)
 		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
 
 		err := gc.Compiler.Command.Run("glide", "name")
 		if err != nil {
+			gc.Compiler.Log.Info("stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
 			return "", err
 		}
 		gc.Compiler.Command.Reset()
 
-		packageName = outputBuffer.String()
+		packageName = stdout.String()
 	case "go_nativevendoring":
 		packageName = os.Getenv("GOPACKAGENAME")
 		if packageName == "" {
