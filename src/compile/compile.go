@@ -54,15 +54,15 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	vendorTool, goVersion, _, err := gc.SelectVendorTool()
+	vendorTool, err := gc.SelectVendorTool()
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to select Go vendor tool: %s", err.Error())
 		return err
 	}
 
-	parsedGoVersion, err := gc.ParseGoVersion(goVersion)
+	goVersion, err := gc.SelectGoVersion(vendorTool)
 	if err != nil {
-		gc.Compiler.Log.Error("Unable to expand Go version %s: %s", goVersion, err.Error())
+		gc.Compiler.Log.Error("Unable to determine Go version to install: %s", err.Error())
 		return err
 	}
 
@@ -72,15 +72,56 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	err = gc.InstallGo(parsedGoVersion)
+	err = gc.InstallGo(goVersion)
 	if err != nil {
 		gc.Compiler.Log.Error("Error installing Go: %s", err.Error())
 	}
 
-	flags := gc.SetupBuildFlags(parsedGoVersion, vendorTool)
+	flags := gc.SetupBuildFlags(goVersion, vendorTool)
 
 	fmt.Println(flags)
 	return nil
+}
+
+func (gc *GoCompiler) SelectGoVersion(vendorTool string) (string, error) {
+	var err error
+	var goVersion string
+
+	switch vendorTool {
+	case "godep":
+		gc.Compiler.Log.BeginStep("Checking Godeps/Godeps.json file")
+		var godeps godepsJSON
+		err = libbuildpack.NewJSON().Load(filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json"), &godeps)
+		if err != nil {
+			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
+			return "", err
+		}
+
+		envGoVersion := os.Getenv("GOVERSION")
+		if envGoVersion != "" {
+			goVersion = envGoVersion
+			gc.Compiler.Log.Warning(goVersionOverride(envGoVersion))
+		} else {
+			goVersion = godeps.GoVersion
+		}
+	case "glide":
+		fallthrough
+	case "go_nativevendoring":
+		envGoVersion := os.Getenv("GOVERSION")
+		if envGoVersion != "" {
+			goVersion = envGoVersion
+		} else {
+			defaultGo, err := gc.Compiler.Manifest.DefaultVersion("go")
+			if err != nil {
+				return "", err
+			}
+			goVersion = fmt.Sprintf("go%s", defaultGo.Version)
+		}
+	default:
+		return "", errors.New("invalid vendor tool")
+	}
+
+	return goVersion, nil
 }
 
 func (gc *GoCompiler) SetupGoPath(packageName string) (string, error) {
@@ -202,91 +243,45 @@ func (gc *GoCompiler) InstallGlide(installDir string) error {
 	return addToPath(filepath.Join(installDir, "bin"))
 }
 
-func (gc *GoCompiler) SelectVendorTool() (vendorTool, goVersion, goPackageName string, err error) {
+func (gc *GoCompiler) SelectVendorTool() (vendorTool string, err error) {
 	godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
 	isGodep, err := libbuildpack.FileExists(godepsJSONFile)
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
 	if isGodep {
-		gc.Compiler.Log.BeginStep("Checking Godeps/Godeps.json file")
-		var godeps godepsJSON
-		err = libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
-		if err != nil {
-			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
-			return "", "", "", err
-		}
-
-		envGoVersion := os.Getenv("GOVERSION")
-		if envGoVersion != "" {
-			goVersion = envGoVersion
-			gc.Compiler.Log.Warning(goVersionOverride(envGoVersion))
-		} else {
-			goVersion = godeps.GoVersion
-		}
-
-		return "godep", goVersion, godeps.ImportPath, nil
+		return "godep", nil
 	}
+
 	godirFile := filepath.Join(gc.Compiler.BuildDir, ".godir")
 	isGodir, err := libbuildpack.FileExists(godirFile)
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
-
 	if isGodir {
 		gc.Compiler.Log.Error(godirError())
-		return "", "", "", errors.New(".godir deprecated")
+		return "", errors.New(".godir deprecated")
 	}
 
 	glideFile := filepath.Join(gc.Compiler.BuildDir, "glide.yaml")
 	isGlide, err := libbuildpack.FileExists(glideFile)
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
-
 	if isGlide {
-		envGoVersion := os.Getenv("GOVERSION")
-		if envGoVersion != "" {
-			goVersion = envGoVersion
-		} else {
-			defaultGo, err := gc.Compiler.Manifest.DefaultVersion("go")
-			if err != nil {
-				return "", "", "", err
-			}
-			goVersion = fmt.Sprintf("go%s", defaultGo.Version)
-		}
-		return "glide", goVersion, "", nil
+		return "glide", nil
 	}
 
 	isGB, err := gc.isGB()
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
-
 	if isGB {
 		gc.Compiler.Log.Error(gbError())
-		return "", "", "", errors.New("gb unsupported")
+		return "", errors.New("gb unsupported")
 	}
 
-	envPackageName := os.Getenv("GOPACKAGENAME")
-	if envPackageName == "" {
-		gc.Compiler.Log.Error(noGOPACKAGENAMEerror())
-		return "", "", "", errors.New("GOPACKAGENAME unset")
-
-	}
-
-	envGoVersion := os.Getenv("GOVERSION")
-	if envGoVersion != "" {
-		goVersion = envGoVersion
-	} else {
-		defaultGo, err := gc.Compiler.Manifest.DefaultVersion("go")
-		if err != nil {
-			return "", "", "", err
-		}
-		goVersion = fmt.Sprintf("go%s", defaultGo.Version)
-	}
-
-	return "go_nativevendoring", goVersion, envPackageName, nil
+	return "go_nativevendoring", nil
 }
 
 func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
