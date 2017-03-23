@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"bytes"
 
@@ -592,6 +593,59 @@ var _ = Describe("Compile", func() {
 				Expect(flags).To(Equal([]string{"-tags cloudfoundry", `-ldflags "-X package.main.thing=some_string"`}))
 			})
 		})
+	})
+
+	Describe("SetupGoPath", func() {
+		var (
+			oldGoPath               string
+			oldGoBin                string
+			oldGoSetupGopathInImage string
+		)
+
+		BeforeEach(func() {
+			oldGoPath = os.Getenv("GOPATH")
+			oldGoBin = os.Getenv("GOBIN")
+			oldGoSetupGopathInImage = os.Getenv("GO_SETUP_GOPATH_IN_IMAGE")
+		})
+
+		AfterEach(func() {
+			err = os.Setenv("GOPATH", oldGoPath)
+			Expect(err).To(BeNil())
+
+			err = os.Setenv("GOBIN", oldGoBin)
+			Expect(err).To(BeNil())
+
+			err = os.Setenv("GO_SETUP_GOPATH_IN_IMAGE", oldGoSetupGopathInImage)
+			Expect(err).To(BeNil())
+		})
+
+		Context("GO_SETUP_GOPATH_IN_IMAGE != true", func() {
+			It("sets  GOPATH to a temp directory", func() {
+				_, err = gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				dirRegex := regexp.MustCompile(`\/.{3,}\/gobuildpack\.gopath[0-9]{8,}\/\.go`)
+				Expect(dirRegex.Match([]byte(os.Getenv("GOPATH")))).To(BeTrue())
+			})
+
+			It("the source dir is <tempdir>/.go/src/<packageName>", func() {
+				srcDir, err := gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				dirRegex := regexp.MustCompile(`\/.{3,}\/gobuildpack\.gopath[0-9]{8,}\/\.go\/src\/a\/package\/name`)
+				Expect(dirRegex.Match([]byte(srcDir))).To(BeTrue())
+			})
+
+			It("sets GOBIN to <buildDir>/bin", func() {
+				_, err = gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(os.Getenv("GOBIN")).To(Equal(filepath.Join(buildDir, "bin")))
+			})
+
+		})
+
+		Context("GO_SETUP_GOPATH_IN_IMAGE = true", func() {})
 
 	})
 })

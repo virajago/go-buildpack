@@ -83,6 +83,26 @@ func (gc *GoCompiler) Compile() error {
 	return nil
 }
 
+func (gc *GoCompiler) SetupGoPath(packageName string) (string, error) {
+	tmpdir, err := ioutil.TempDir("", "gobuildpack.gopath")
+	if err != nil {
+		return "", err
+	}
+
+	err = os.Setenv("GOPATH", filepath.Join(tmpdir, ".go"))
+	if err != nil {
+		return "", err
+	}
+
+	err = os.Setenv("GOBIN", filepath.Join(gc.Compiler.BuildDir, "bin"))
+	if err != nil {
+		return "", err
+	}
+
+	srcDir := filepath.Join(tmpdir, ".go", "src", packageName)
+	return srcDir, nil
+}
+
 func (gc *GoCompiler) SetupBuildFlags(goVersion, tool string) []string {
 	flags := []string{"-tags cloudfoundry"}
 
