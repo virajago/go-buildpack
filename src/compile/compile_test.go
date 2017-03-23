@@ -606,6 +606,16 @@ var _ = Describe("Compile", func() {
 			oldGoPath = os.Getenv("GOPATH")
 			oldGoBin = os.Getenv("GOBIN")
 			oldGoSetupGopathInImage = os.Getenv("GO_SETUP_GOPATH_IN_IMAGE")
+
+			err := ioutil.WriteFile(filepath.Join(buildDir, "main.go"), []byte("xx"), 0644)
+			Expect(err).To(BeNil())
+
+			err = os.MkdirAll(filepath.Join(buildDir, "vendor"), 0755)
+			Expect(err).To(BeNil())
+
+			err = ioutil.WriteFile(filepath.Join(buildDir, "vendor", "lib.go"), []byte("xx"), 0644)
+			Expect(err).To(BeNil())
+
 		})
 
 		AfterEach(func() {
@@ -619,6 +629,13 @@ var _ = Describe("Compile", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("creates <buildDir>/bin", func() {
+			_, err = gc.SetupGoPath("a/package/name")
+			Expect(err).To(BeNil())
+
+			Expect(filepath.Join(buildDir, "bin")).To(BeADirectory())
+		})
+
 		Context("GO_SETUP_GOPATH_IN_IMAGE != true", func() {
 			It("sets  GOPATH to a temp directory", func() {
 				_, err = gc.SetupGoPath("a/package/name")
@@ -628,12 +645,20 @@ var _ = Describe("Compile", func() {
 				Expect(dirRegex.Match([]byte(os.Getenv("GOPATH")))).To(BeTrue())
 			})
 
-			It("the source dir is <tempdir>/.go/src/<packageName>", func() {
-				srcDir, err := gc.SetupGoPath("a/package/name")
+			It("the package dir is <tempdir>/.go/src/<packageName>", func() {
+				packageDir, err := gc.SetupGoPath("a/package/name")
 				Expect(err).To(BeNil())
 
 				dirRegex := regexp.MustCompile(`\/.{3,}\/gobuildpack\.gopath[0-9]{8,}\/\.go\/src\/a\/package\/name`)
-				Expect(dirRegex.Match([]byte(srcDir))).To(BeTrue())
+				Expect(dirRegex.Match([]byte(packageDir))).To(BeTrue())
+			})
+
+			It("copies the buildDir contents to <tempdir>/.go/src/<packageName>", func() {
+				packageDir, err := gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(packageDir, "main.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(packageDir, "vendor", "lib.go")).To(BeAnExistingFile())
 			})
 
 			It("sets GOBIN to <buildDir>/bin", func() {
@@ -642,10 +667,42 @@ var _ = Describe("Compile", func() {
 
 				Expect(os.Getenv("GOBIN")).To(Equal(filepath.Join(buildDir, "bin")))
 			})
-
 		})
 
-		Context("GO_SETUP_GOPATH_IN_IMAGE = true", func() {})
+		Context("GO_SETUP_GOPATH_IN_IMAGE = true", func() {
+			BeforeEach(func() {
+				err = os.Setenv("GO_SETUP_GOPATH_IN_IMAGE", "true")
+			})
 
+			It("sets GOPATH to the build directory", func() {
+				_, err = gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(os.Getenv("GOPATH")).To(Equal(buildDir))
+			})
+
+			It("the package directory is <buildDir>/src/<packageName>", func() {
+				packageDir, err := gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(packageDir).To(Equal(filepath.Join(buildDir, "src", "a/package/name")))
+			})
+
+			It("moves the buildDir contents to <buildDir>/src/<packageName>", func() {
+				packageDir, err := gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(packageDir, "main.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(packageDir, "vendor", "lib.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(packageDir, "src", "a/package/name")).NotTo(BeAnExistingFile())
+			})
+
+			It("does not set GOBIN", func() {
+				_, err = gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(os.Getenv("GOBIN")).To(Equal(oldGoBin))
+			})
+		})
 	})
 })

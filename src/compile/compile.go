@@ -84,23 +84,65 @@ func (gc *GoCompiler) Compile() error {
 }
 
 func (gc *GoCompiler) SetupGoPath(packageName string) (string, error) {
-	tmpdir, err := ioutil.TempDir("", "gobuildpack.gopath")
+	var goPath string
+	goPathInImage := os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true"
+
+	if goPathInImage {
+		goPath = gc.Compiler.BuildDir
+	} else {
+		tmpDir, err := ioutil.TempDir("", "gobuildpack.gopath")
+		if err != nil {
+			return "", err
+		}
+		goPath = filepath.Join(tmpDir, ".go")
+	}
+
+	packageDir := filepath.Join(goPath, "src", packageName)
+	err := os.MkdirAll(packageDir, 0755)
 	if err != nil {
 		return "", err
 	}
 
-	err = os.Setenv("GOPATH", filepath.Join(tmpdir, ".go"))
+	err = os.Setenv("GOPATH", goPath)
 	if err != nil {
 		return "", err
 	}
 
-	err = os.Setenv("GOBIN", filepath.Join(gc.Compiler.BuildDir, "bin"))
+	binDir := filepath.Join(gc.Compiler.BuildDir, "bin")
+	err = os.MkdirAll(binDir, 0755)
 	if err != nil {
 		return "", err
 	}
 
-	srcDir := filepath.Join(tmpdir, ".go", "src", packageName)
-	return srcDir, nil
+	if goPathInImage {
+		files, err := ioutil.ReadDir(gc.Compiler.BuildDir)
+		if err != nil {
+			return "", err
+		}
+		for _, f := range files {
+			if f.Name() != "src" {
+				src := filepath.Join(gc.Compiler.BuildDir, f.Name())
+				dest := filepath.Join(packageDir, f.Name())
+
+				err = os.Rename(src, dest)
+				if err != nil {
+					return "", err
+				}
+			}
+		}
+	} else {
+		err = os.Setenv("GOBIN", binDir)
+		if err != nil {
+			return "", err
+		}
+
+		err = libbuildpack.CopyDirectory(gc.Compiler.BuildDir, packageDir)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return packageDir, nil
 }
 
 func (gc *GoCompiler) SetupBuildFlags(goVersion, tool string) []string {
