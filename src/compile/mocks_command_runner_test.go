@@ -53,12 +53,20 @@ func (_mr *_MockCommandRunnerRecorder) SetStderr(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetStderr", arg0)
 }
 
-func (_m *MockCommandRunner) ResetOutput() {
-	_m.ctrl.Call(_m, "ResetOutput")
+func (_m *MockCommandRunner) SetDir(_param0 string) {
+	_m.ctrl.Call(_m, "SetDir", _param0)
 }
 
-func (_mr *_MockCommandRunnerRecorder) ResetOutput() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetOutput")
+func (_mr *_MockCommandRunnerRecorder) SetDir(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetDir", arg0)
+}
+
+func (_m *MockCommandRunner) Reset() {
+	_m.ctrl.Call(_m, "Reset")
+}
+
+func (_mr *_MockCommandRunnerRecorder) Reset() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Reset")
 }
 
 func (_m *MockCommandRunner) Run(program string, args ...string) error {

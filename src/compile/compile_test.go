@@ -696,9 +696,10 @@ var _ = Describe("Compile", func() {
 					(*buffer).Write([]byte("go-package-name"))
 				})
 				mockCommandRunner.EXPECT().SetStderr(ioutil.Discard)
+				mockCommandRunner.EXPECT().SetDir(buildDir)
 
 				mockCommandRunner.EXPECT().Run("glide", "name").Return(nil)
-				mockCommandRunner.EXPECT().ResetOutput()
+				mockCommandRunner.EXPECT().Reset()
 
 				goPackageName, err := gc.PackageName("glide")
 				Expect(err).To(BeNil())

@@ -112,12 +112,13 @@ func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
 
 		gc.Compiler.Command.SetStdout(outputBuffer)
 		gc.Compiler.Command.SetStderr(ioutil.Discard)
+		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
 
 		err := gc.Compiler.Command.Run("glide", "name")
 		if err != nil {
 			return "", err
 		}
-		gc.Compiler.Command.ResetOutput()
+		gc.Compiler.Command.Reset()
 
 		packageName = outputBuffer.String()
 	case "go_nativevendoring":
