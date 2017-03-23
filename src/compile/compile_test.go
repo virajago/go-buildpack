@@ -17,18 +17,20 @@ import (
 )
 
 //go:generate mockgen -source=vendor/github.com/cloudfoundry/libbuildpack/manifest.go --destination=mocks_manifest_test.go --package=main_test --imports=.=github.com/cloudfoundry/libbuildpack
+//go:generate mockgen -source=vendor/github.com/cloudfoundry/libbuildpack/command_runner.go --destination=mocks_command_runner_test.go --package=main_test
 
 var _ = Describe("Compile", func() {
 	var (
-		buildDir     string
-		cacheDir     string
-		depsDir      string
-		gc           *c.GoCompiler
-		logger       libbuildpack.Logger
-		buffer       *bytes.Buffer
-		err          error
-		mockCtrl     *gomock.Controller
-		mockManifest *MockManifest
+		buildDir          string
+		cacheDir          string
+		depsDir           string
+		gc                *c.GoCompiler
+		logger            libbuildpack.Logger
+		buffer            *bytes.Buffer
+		err               error
+		mockCtrl          *gomock.Controller
+		mockManifest      *MockManifest
+		mockCommandRunner *MockCommandRunner
 	)
 
 	BeforeEach(func() {
@@ -47,6 +49,7 @@ var _ = Describe("Compile", func() {
 
 		mockCtrl = gomock.NewController(GinkgoT())
 		mockManifest = NewMockManifest(mockCtrl)
+		mockCommandRunner = NewMockCommandRunner(mockCtrl)
 	})
 
 	JustBeforeEach(func() {
@@ -54,7 +57,9 @@ var _ = Describe("Compile", func() {
 			CacheDir: cacheDir,
 			DepsDir:  depsDir,
 			Manifest: mockManifest,
-			Log:      logger}
+			Log:      logger,
+			Command:  mockCommandRunner,
+		}
 
 		gc = &c.GoCompiler{Compiler: bpc}
 	})
@@ -685,7 +690,21 @@ var _ = Describe("Compile", func() {
 			})
 		})
 
-		Context("the vendor tool is glide", func() {})
+		Context("the vendor tool is glide", func() {
+			It("returns the value of 'glide name'", func() {
+				mockCommandRunner.EXPECT().SetStdout(gomock.Any()).Do(func(buffer *bytes.Buffer) {
+					(*buffer).Write([]byte("go-package-name"))
+				})
+				mockCommandRunner.EXPECT().SetStderr(ioutil.Discard)
+
+				mockCommandRunner.EXPECT().Run("glide", "name").Return(nil)
+				mockCommandRunner.EXPECT().ResetOutput()
+
+				goPackageName, err := gc.PackageName("glide")
+				Expect(err).To(BeNil())
+				Expect(goPackageName).To(Equal("go-package-name"))
+			})
+		})
 
 		Context("the vendor tool is go_nativevendoring", func() {
 			Context("GOPACKAGENAME is not set", func() {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -104,8 +105,21 @@ func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
 			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
 			return "", err
 		}
-
 		packageName = godeps.ImportPath
+
+	case "glide":
+		outputBuffer := new(bytes.Buffer)
+
+		gc.Compiler.Command.SetStdout(outputBuffer)
+		gc.Compiler.Command.SetStderr(ioutil.Discard)
+
+		err := gc.Compiler.Command.Run("glide", "name")
+		if err != nil {
+			return "", err
+		}
+		gc.Compiler.Command.ResetOutput()
+
+		packageName = outputBuffer.String()
 	case "go_nativevendoring":
 		packageName = os.Getenv("GOPACKAGENAME")
 		if packageName == "" {
