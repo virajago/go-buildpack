@@ -500,7 +500,7 @@ var _ = Describe("Compile", func() {
 		Context("link environment variables not set", func() {
 			It("contains the default flags", func() {
 				flags := gc.SetupBuildFlags("5.5.5")
-				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "-buildmode=pie"}))
+				Expect(flags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie"}))
 			})
 		})
 
@@ -532,7 +532,7 @@ var _ = Describe("Compile", func() {
 
 			It("contains the ldflags argument", func() {
 				flags := gc.SetupBuildFlags("5.5.5")
-				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "-buildmode=pie", `-ldflags "-X package.main.thing=some_string"`}))
+				Expect(flags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie", `-ldflags "-X package.main.thing=some_string"`}))
 			})
 		})
 	})

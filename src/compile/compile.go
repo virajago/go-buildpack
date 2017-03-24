@@ -414,7 +414,7 @@ func (gc *GoCompiler) SetupGoPath(mainPackageName string) (string, error) {
 }
 
 func (gc *GoCompiler) SetupBuildFlags(goVersion string) []string {
-	flags := []string{"-tags", "cloudfoundry", "-buildmode=pie"}
+	flags := []string{"-tags", "cloudfoundry", "-buildmode", "pie"}
 
 	if os.Getenv("GO_LINKER_SYMBOL") != "" && os.Getenv("GO_LINKER_VALUE") != "" {
 		flags = append(flags, fmt.Sprintf("-ldflags \"-X %s=%s\"", os.Getenv("GO_LINKER_SYMBOL"), os.Getenv("GO_LINKER_VALUE")))
