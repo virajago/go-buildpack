@@ -86,29 +86,33 @@ func (gc *GoCompiler) Compile() error {
 
 	packageDir, err := gc.SetupGoPath(mainPackageName)
 	if err != nil {
-		gc.Compiler.Log.Error("Error checking bin directory: %s", err.Error())
+		gc.Compiler.Log.Error("Unable to setup Go path: %s", err.Error())
 		return err
 	}
 
-	err = gc.CompileApp(mainPackageName, packageDir, goVersion, vendorTool)
+	err = os.Unsetenv("GIT_DIR")
+	if err != nil {
+		return err
+	}
 
-	fmt.Println(packageDir)
+	buildFlags := gc.SetupBuildFlags(goVersion, vendorTool)
+	packages, err := gc.InstallPackages(mainPackageName, packageDir, goVersion, vendorTool)
+	if err != nil {
+		gc.Compiler.Log.Error("Unable to determine packages to install: %s", err.Error())
+		return err
+	}
+
+	err = gc.CompileApp(packages, buildFlags, packageDir, vendorTool)
+	if err != nil {
+		gc.Compiler.Log.Error("Unable to compile application: %s", err.Error())
+		return err
+	}
 
 	return nil
 
 }
 
-func (gc *GoCompiler) CompileApp(mainPackageName, packageDir, goVersion, vendorTool string) error {
-	err := os.Setenv("GIT_DIR", "")
-	if err != nil {
-		return err
-	}
-
-	flags := gc.SetupBuildFlags(goVersion, vendorTool)
-	packages, _ := gc.InstallPackages(mainPackageName, packageDir, goVersion, vendorTool)
-	fmt.Println(flags)
-	fmt.Println(packages)
-
+func (gc *GoCompiler) CompileApp(packages, flags []string, packageDir, vendorTool string) error {
 	switch vendorTool {
 	case "godep":
 	case "glide":
@@ -121,6 +125,7 @@ func (gc *GoCompiler) CompileApp(mainPackageName, packageDir, goVersion, vendorT
 }
 
 func (gc *GoCompiler) InstallPackages(mainPackageName, packageDir, goVersion, vendorTool string) ([]string, error) {
+
 	var packages []string
 	useVendorDir := true
 	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(packageDir, "vendor"))
