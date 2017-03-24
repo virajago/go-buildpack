@@ -1129,7 +1129,7 @@ var _ = Describe("Compile", func() {
 		})
 
 		Context("the tool is godep", func() {})
-		Context("the tool is glide or go_nativevendoring", func() {
+		Context("the tool is glide", func() {
 			It("logs and runs the install command it is going to run", func() {
 				gomock.InOrder(
 					mockCommandRunner.EXPECT().SetDir(packageDir),
@@ -1143,5 +1143,20 @@ var _ = Describe("Compile", func() {
 				Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
 			})
 		})
+		Context("the tool is go_nativevendoring", func() {
+			It("logs and runs the install command it is going to run", func() {
+				gomock.InOrder(
+					mockCommandRunner.EXPECT().SetDir(packageDir),
+					mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
+					mockCommandRunner.EXPECT().SetDir(""),
+				)
+
+				err = gc.CompileApp(packages, buildFlags, packageDir, "go_nativevendoring")
+				Expect(err).To(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
+			})
+		})
+
 	})
 })
