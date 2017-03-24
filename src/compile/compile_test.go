@@ -500,7 +500,7 @@ var _ = Describe("Compile", func() {
 		Context("link environment variables not set", func() {
 			It("contains the default flags", func() {
 				flags := gc.SetupBuildFlags("5.5.5")
-				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "--buildmode=pie"}))
+				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "-buildmode=pie"}))
 			})
 		})
 
@@ -532,7 +532,7 @@ var _ = Describe("Compile", func() {
 
 			It("contains the ldflags argument", func() {
 				flags := gc.SetupBuildFlags("5.5.5")
-				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "--buildmode=pie", `-ldflags "-X package.main.thing=some_string"`}))
+				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "-buildmode=pie", `-ldflags "-X package.main.thing=some_string"`}))
 			})
 		})
 	})
@@ -1109,11 +1109,39 @@ var _ = Describe("Compile", func() {
 			})
 		})
 	})
-	Describe("SelectVendorTool", func() {
+	Describe("CompileApp", func() {
+		var (
+			packages   []string
+			buildFlags []string
+			packageDir string
+		)
+
+		BeforeEach(func() {
+			packages = []string{"first", "second"}
+			buildFlags = []string{"-a=1", "-b=2"}
+			packageDir, err = ioutil.TempDir("", "go-buildpack.package")
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			err = os.RemoveAll(packageDir)
+			Expect(err).To(BeNil())
+		})
 
 		Context("the tool is godep", func() {})
-		Context("the tool is glide or go_nativevendoring", func() {})
+		Context("the tool is glide or go_nativevendoring", func() {
+			It("logs and runs the install command it is going to run", func() {
+				gomock.InOrder(
+					mockCommandRunner.EXPECT().SetDir(packageDir),
+					mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
+					mockCommandRunner.EXPECT().SetDir(""),
+				)
 
+				err = gc.CompileApp(packages, buildFlags, packageDir, "glide")
+				Expect(err).To(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
+			})
+		})
 	})
-
 })
