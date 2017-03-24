@@ -127,10 +127,10 @@ func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool
 	if err != nil {
 		return nil, err
 	}
+	go16 := strings.Split(goVersion, ".")[0] == "1" && strings.Split(goVersion, ".")[1] == "6"
 
 	switch vendorTool {
 	case "godep":
-		go16 := strings.Split(goVersion, ".")[0] == "1" && strings.Split(goVersion, ".")[1] == "6"
 		if os.Getenv("GO15VENDOREXPERIMENT") != "" {
 			if !go16 {
 				gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
@@ -154,7 +154,7 @@ func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool
 		}
 
 		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
-			packages = append(packages, os.Getenv("GO_INSTALL_PACKAGE_SPEC"))
+			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
 			gc.Compiler.Log.Warning(packageSpecOverride(packages))
 		} else {
 			godepsJSONFile := filepath.Join(packageDir, "Godeps", "Godeps.json")
@@ -176,8 +176,19 @@ func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool
 			packages = massagePackageSpecForVendor(packageName, packageDir, packages)
 		}
 	case "glide":
-
 	case "go_nativevendoring":
+		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
+			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
+		} else {
+			packages = append(packages, ".")
+			gc.Compiler.Log.Warning("Installing package '.' (default)")
+		}
+
+		if os.Getenv("GO15VENDOREXPERIMENT") == "0" && go16 {
+			gc.Compiler.Log.Error(mustUseVendorError())
+			return nil, errors.New("must use vendor/ for go native vendoring")
+		}
+		packages = massagePackageSpecForVendor(packageName, packageDir, packages)
 	default:
 		return nil, errors.New("invalid vendor tool")
 	}

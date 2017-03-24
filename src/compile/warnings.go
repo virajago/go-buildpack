@@ -60,3 +60,10 @@ code may not compile. Please convert all deps to vendor/`
 
 	return errorMessage
 }
+
+func mustUseVendorError() string {
+	errorMessage := `$GO15VENDOREXPERIMENT=0. To vendor your packages in vendor/
+with go 1.6 this environment variable must unset or set to 1.`
+
+	return errorMessage
+}
