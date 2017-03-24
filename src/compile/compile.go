@@ -72,7 +72,7 @@ func (gc *GoCompiler) Compile() error {
 		gc.Compiler.Log.Error("Error installing Go: %s", err.Error())
 	}
 
-	packageName, err := gc.PackageName(vendorTool)
+	mainPackageName, err := gc.MainPackageName(vendorTool)
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to determine import path: %s", err.Error())
 		return err
@@ -84,13 +84,13 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	packageDir, err := gc.SetupGoPath(packageName)
+	packageDir, err := gc.SetupGoPath(mainPackageName)
 	if err != nil {
 		gc.Compiler.Log.Error("Error checking bin directory: %s", err.Error())
 		return err
 	}
 
-	err = gc.CompileApp(packageName, packageDir, goVersion, vendorTool)
+	err = gc.CompileApp(mainPackageName, packageDir, goVersion, vendorTool)
 
 	fmt.Println(packageDir)
 
@@ -98,14 +98,14 @@ func (gc *GoCompiler) Compile() error {
 
 }
 
-func (gc *GoCompiler) CompileApp(packageName, packageDir, goVersion, vendorTool string) error {
+func (gc *GoCompiler) CompileApp(mainPackageName, packageDir, goVersion, vendorTool string) error {
 	err := os.Setenv("GIT_DIR", "")
 	if err != nil {
 		return err
 	}
 
 	flags := gc.SetupBuildFlags(goVersion, vendorTool)
-	packages, _ := gc.AllPackages(packageName, packageDir, goVersion, vendorTool)
+	packages, _ := gc.InstallPackages(mainPackageName, packageDir, goVersion, vendorTool)
 	fmt.Println(flags)
 	fmt.Println(packages)
 
@@ -120,7 +120,7 @@ func (gc *GoCompiler) CompileApp(packageName, packageDir, goVersion, vendorTool 
 	return nil
 }
 
-func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool string) ([]string, error) {
+func (gc *GoCompiler) InstallPackages(mainPackageName, packageDir, goVersion, vendorTool string) ([]string, error) {
 	var packages []string
 	useVendorDir := true
 	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(packageDir, "vendor"))
@@ -173,9 +173,10 @@ func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool
 		}
 
 		if useVendorDir {
-			packages = massagePackageSpecForVendor(packageName, packageDir, packages)
+			packages = massagePackageSpecForVendor(mainPackageName, packageDir, packages)
 		}
 	case "glide":
+
 	case "go_nativevendoring":
 		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
 			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
@@ -188,7 +189,7 @@ func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool
 			gc.Compiler.Log.Error(mustUseVendorError())
 			return nil, errors.New("must use vendor/ for go native vendoring")
 		}
-		packages = massagePackageSpecForVendor(packageName, packageDir, packages)
+		packages = massagePackageSpecForVendor(mainPackageName, packageDir, packages)
 	default:
 		return nil, errors.New("invalid vendor tool")
 	}
@@ -196,7 +197,7 @@ func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool
 	return packages, nil
 }
 
-func massagePackageSpecForVendor(packageName, packageDir string, packages []string) []string {
+func massagePackageSpecForVendor(mainPackageName, packageDir string, packages []string) []string {
 	var newPackages []string
 
 	for _, pkg := range packages {
@@ -204,15 +205,15 @@ func massagePackageSpecForVendor(packageName, packageDir string, packages []stri
 		if pkg == "." || !vendored {
 			newPackages = append(newPackages, pkg)
 		} else {
-			newPackages = append(newPackages, filepath.Join(packageName, "vendor", pkg))
+			newPackages = append(newPackages, filepath.Join(mainPackageName, "vendor", pkg))
 		}
 	}
 
 	return newPackages
 }
 
-func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
-	var packageName string
+func (gc *GoCompiler) MainPackageName(vendorTool string) (string, error) {
+	var mainPackageName string
 	var err error
 
 	switch vendorTool {
@@ -224,19 +225,19 @@ func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
 			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
 			return "", err
 		}
-		packageName = godeps.ImportPath
+		mainPackageName = godeps.ImportPath
 
 	case "glide":
 		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
 		defer gc.Compiler.Command.SetDir("")
 
-		packageName, err = gc.Compiler.Command.CaptureOutput("glide", "name")
+		mainPackageName, err = gc.Compiler.Command.CaptureOutput("glide", "name")
 		if err != nil {
 			return "", err
 		}
 	case "go_nativevendoring":
-		packageName = os.Getenv("GOPACKAGENAME")
-		if packageName == "" {
+		mainPackageName = os.Getenv("GOPACKAGENAME")
+		if mainPackageName == "" {
 			gc.Compiler.Log.Error(noGOPACKAGENAMEerror())
 			return "", errors.New("GOPACKAGENAME unset")
 		}
@@ -244,7 +245,7 @@ func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
 	default:
 		return "", errors.New("invalid vendor tool")
 	}
-	return packageName, nil
+	return mainPackageName, nil
 }
 
 func (gc *GoCompiler) SelectGoVersion(vendorTool string) (string, error) {
@@ -288,7 +289,7 @@ func (gc *GoCompiler) SelectGoVersion(vendorTool string) (string, error) {
 	return gc.ParseGoVersion(goVersion)
 }
 
-func (gc *GoCompiler) SetupGoPath(packageName string) (string, error) {
+func (gc *GoCompiler) SetupGoPath(mainPackageName string) (string, error) {
 	var goPath string
 	goPathInImage := os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true"
 
@@ -302,7 +303,7 @@ func (gc *GoCompiler) SetupGoPath(packageName string) (string, error) {
 		goPath = filepath.Join(tmpDir, ".go")
 	}
 
-	packageDir := filepath.Join(goPath, "src", packageName)
+	packageDir := filepath.Join(goPath, "src", mainPackageName)
 	err := os.MkdirAll(packageDir, 0755)
 	if err != nil {
 		return "", err
