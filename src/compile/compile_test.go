@@ -741,26 +741,33 @@ var _ = Describe("Compile", func() {
 
 	Describe("AllPackages", func() {
 		var (
-			packageDir string
-			vendorTool string
+			packageDir  string
+			vendorTool  string
+			packageName string
+			tempDir     string
 		)
 
 		BeforeEach(func() {
-			packageDir, err = ioutil.TempDir("", "go-buildpack.package")
+			packageName = "a/package/name"
+			tempDir, err = ioutil.TempDir("", "go-buildpack.package")
+			Expect(err).To(BeNil())
+
+			packageDir = filepath.Join(tempDir, packageName)
+
+			err = os.MkdirAll(packageDir, 0755)
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			err = os.RemoveAll(tempDir)
 			Expect(err).To(BeNil())
 		})
 
 		Context("the vendor tool is godep", func() {
-			BeforeEach(func() {
+			var godepsJsonContents string
+
+			JustBeforeEach(func() {
 				vendorTool = "godep"
-				godepsJsonContents := `
-{
-	"ImportPath": "go-online",
-	"GoVersion": "go1.6",
-	"Deps": [],
-	"Packages": ["foo", "bar"]
-}					
-`
 				err = os.MkdirAll(filepath.Join(packageDir, "Godeps"), 0755)
 				Expect(err).To(BeNil())
 
@@ -770,9 +777,152 @@ var _ = Describe("Compile", func() {
 			})
 
 			Context("GO_INSTALL_PACKAGE_SPEC is set", func() {
+				var oldGoInstallPackageSpec string
+
+				BeforeEach(func() {
+					oldGoInstallPackageSpec = os.Getenv("GO_INSTALL_PACKAGE_SPEC")
+					err = os.Setenv("GO_INSTALL_PACKAGE_SPEC", "a-package-name")
+					Expect(err).To(BeNil())
+				})
+
+				AfterEach(func() {
+					err = os.Setenv("GO_INSTALL_PACKAGE_SPEC", oldGoInstallPackageSpec)
+					Expect(err).To(BeNil())
+				})
+
+				It("uses the packages from the env var", func() {
+					packages, err := gc.AllPackages(packageName, packageDir, "1.8.3", vendorTool)
+					Expect(err).To(BeNil())
+					Expect(packages).To(Equal([]string{"a-package-name"}))
+				})
+
+				It("logs a warning that it overrode the Godeps.json packages", func() {
+					_, err := gc.AllPackages(packageName, packageDir, "1.8.3", vendorTool)
+					Expect(err).To(BeNil())
+					Expect(buffer.String()).To(ContainSubstring("**WARNING** Using $GO_INSTALL_PACKAGE_SPEC override."))
+					Expect(buffer.String()).To(ContainSubstring("    $GO_INSTALL_PACKAGE_SPEC = a-package-name"))
+					Expect(buffer.String()).To(ContainSubstring("If this isn't what you want please run:"))
+					Expect(buffer.String()).To(ContainSubstring("    cf unset-env <app> GO_INSTALL_PACKAGE_SPEC"))
+				})
 
 			})
+
+			Context("No packages in Godeps.json", func() {
+				BeforeEach(func() {
+					godepsJsonContents = `
+{
+	"ImportPath": "go-online",
+	"GoVersion": "go1.6",
+	"Deps": []
+}					
+`
+				})
+
+				It("returns default", func() {
+					packages, err := gc.AllPackages(packageName, packageDir, "1.8.3", vendorTool)
+					Expect(err).To(BeNil())
+					Expect(packages).To(Equal([]string{"."}))
+				})
+
+				It("logs a warning that it is using the default", func() {
+					_, err := gc.AllPackages(packageName, packageDir, "1.8.3", vendorTool)
+					Expect(err).To(BeNil())
+					Expect(buffer.String()).To(ContainSubstring("**WARNING** Installing package '.' (default)"))
+				})
+			})
+
 			Context("GO_INSTALL_PACKAGE_SPEC is not set", func() {
+				BeforeEach(func() {
+					godepsJsonContents = `
+{
+	"ImportPath": "go-online",
+	"GoVersion": "go1.6",
+	"Deps": [],
+	"Packages": ["foo", "bar"]
+}					
+`
+				})
+
+				Context("packages are vendored", func() {
+					BeforeEach(func() {
+						err = os.MkdirAll(filepath.Join(packageDir, "vendor", "foo"), 0755)
+						Expect(err).To(BeNil())
+					})
+
+					It("handles the vendoring correctly", func() {
+						packages, err := gc.AllPackages(packageName, packageDir, "1.8.3", vendorTool)
+						Expect(err).To(BeNil())
+
+						Expect(packages).To(Equal([]string{filepath.Join(packageName, "vendor", "foo"), "bar"}))
+					})
+
+					Context("packages are in the Godeps/_workspace", func() {
+						BeforeEach(func() {
+							err = os.MkdirAll(filepath.Join(packageDir, "Godeps", "_workspace", "src"), 0755)
+							Expect(err).To(BeNil())
+						})
+
+						It("uses the packages from Godeps.json", func() {
+							packages, err := gc.AllPackages(packageName, packageDir, "1.6.3", vendorTool)
+							Expect(err).To(BeNil())
+
+							Expect(packages).To(Equal([]string{"foo", "bar"}))
+						})
+
+						It("logs a warning about vendor and godeps both existing", func() {
+							_, err := gc.AllPackages(packageName, packageDir, "1.6.3", vendorTool)
+							Expect(err).To(BeNil())
+
+							Expect(buffer.String()).To(ContainSubstring("**WARNING** Godeps/_workspace/src and vendor/ exist"))
+							Expect(buffer.String()).To(ContainSubstring("code may not compile. Please convert all deps to vendor/"))
+						})
+
+					})
+
+					Context("go 1.6.x with GO15VENDOREXPERIMENT=0", func() {
+						var oldGO15VENDOREXPERIMENT string
+
+						BeforeEach(func() {
+							oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
+							err = os.Setenv("GO15VENDOREXPERIMENT", "0")
+							Expect(err).To(BeNil())
+						})
+
+						AfterEach(func() {
+							err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
+							Expect(err).To(BeNil())
+						})
+
+						It("uses the packages from Godeps.json", func() {
+							packages, err := gc.AllPackages(packageName, packageDir, "1.6.3", vendorTool)
+							Expect(err).To(BeNil())
+
+							Expect(packages).To(Equal([]string{"foo", "bar"}))
+						})
+					})
+				})
+
+				Context("packages are in the Godeps/_workspace", func() {
+					BeforeEach(func() {
+						err = os.MkdirAll(filepath.Join(packageDir, "Godeps", "_workspace", "src"), 0755)
+						Expect(err).To(BeNil())
+					})
+
+					It("uses the packages from Godeps.json", func() {
+						packages, err := gc.AllPackages(packageName, packageDir, "1.6.3", vendorTool)
+						Expect(err).To(BeNil())
+
+						Expect(packages).To(Equal([]string{"foo", "bar"}))
+					})
+
+					It("doesn't log any warnings", func() {
+						_, err := gc.AllPackages(packageName, packageDir, "1.6.3", vendorTool)
+						Expect(err).To(BeNil())
+
+						Expect(buffer.String()).To(Equal(""))
+					})
+				})
+
 				Context("go 1.7 or later with GO15VENDOREXPERIMENT set", func() {
 					var oldGO15VENDOREXPERIMENT string
 
@@ -788,7 +938,7 @@ var _ = Describe("Compile", func() {
 					})
 
 					It("errors out with a warning messaage", func() {
-						_, err := gc.AllPackages(packageDir, "1.8.3", vendorTool)
+						_, err := gc.AllPackages(packageName, packageDir, "1.8.3", vendorTool)
 						Expect(err).NotTo(BeNil())
 
 						Expect(buffer.String()).To(ContainSubstring("**ERROR** GO15VENDOREXPERIMENT is set, but is not supported by go1.7 and later"))
@@ -796,30 +946,7 @@ var _ = Describe("Compile", func() {
 					})
 				})
 
-				Context("go 1.6.x with GO15VENDOREXPERIMENT=0", func() {
-					var oldGO15VENDOREXPERIMENT string
-
-					BeforeEach(func() {
-						oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
-						err = os.Setenv("GOPACKAGENAME", "0")
-						Expect(err).To(BeNil())
-					})
-
-					AfterEach(func() {
-						err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
-						Expect(err).To(BeNil())
-					})
-
-					It("uses the packages from Godeps.json", func() {
-						packages, err := gc.AllPackages(packageDir, "1.6.3", vendorTool)
-						Expect(err).To(BeNil())
-
-						Expect(packages).To(Equal([]string{"foo", "bar"}))
-					})
-				})
 			})
-			Context("package is default", func() {})
-
 		})
 	})
 })

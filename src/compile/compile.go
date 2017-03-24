@@ -90,7 +90,7 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	err = gc.CompileApp(packageDir, goVersion, vendorTool)
+	err = gc.CompileApp(packageName, packageDir, goVersion, vendorTool)
 
 	fmt.Println(packageDir)
 
@@ -98,14 +98,14 @@ func (gc *GoCompiler) Compile() error {
 
 }
 
-func (gc *GoCompiler) CompileApp(packageDir, goVersion, vendorTool string) error {
+func (gc *GoCompiler) CompileApp(packageName, packageDir, goVersion, vendorTool string) error {
 	err := os.Setenv("GIT_DIR", "")
 	if err != nil {
 		return err
 	}
 
 	flags := gc.SetupBuildFlags(goVersion, vendorTool)
-	packages, _ := gc.AllPackages(packageDir, goVersion, vendorTool)
+	packages, _ := gc.AllPackages(packageName, packageDir, goVersion, vendorTool)
 	fmt.Println(flags)
 	fmt.Println(packages)
 
@@ -120,8 +120,13 @@ func (gc *GoCompiler) CompileApp(packageDir, goVersion, vendorTool string) error
 	return nil
 }
 
-func (gc *GoCompiler) AllPackages(packageDir, goVersion, vendorTool string) ([]string, error) {
+func (gc *GoCompiler) AllPackages(packageName, packageDir, goVersion, vendorTool string) ([]string, error) {
 	var packages []string
+	useVendorDir := true
+	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(packageDir, "vendor"))
+	if err != nil {
+		return nil, err
+	}
 
 	switch vendorTool {
 	case "godep":
@@ -131,25 +136,68 @@ func (gc *GoCompiler) AllPackages(packageDir, goVersion, vendorTool string) ([]s
 				gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
 				return nil, errors.New("unsupported GO15VENDOREXPERIMENT")
 			}
-
+			if os.Getenv("GO15VENDOREXPERIMENT") == "0" {
+				useVendorDir = false
+			}
 		}
 
-		godepsJSONFile := filepath.Join(packageDir, "Godeps", "Godeps.json")
-		var godeps godepsJSON
-		err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(packageDir, "Godeps", "_workspace", "src"))
 		if err != nil {
-			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
 			return nil, err
 		}
-		packages = godeps.Packages
+		if godepsWorkspaceExists {
+			useVendorDir = false
 
+			if vendorDirExists {
+				gc.Compiler.Log.Warning(godepsWorkspaceWarning())
+			}
+		}
+
+		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
+			packages = append(packages, os.Getenv("GO_INSTALL_PACKAGE_SPEC"))
+			gc.Compiler.Log.Warning(packageSpecOverride(packages))
+		} else {
+			godepsJSONFile := filepath.Join(packageDir, "Godeps", "Godeps.json")
+			var godeps godepsJSON
+			err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+			if err != nil {
+				gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
+				return nil, err
+			}
+			packages = godeps.Packages
+		}
+
+		if len(packages) == 0 {
+			gc.Compiler.Log.Warning("Installing package '.' (default)")
+			packages = append(packages, ".")
+		}
+
+		if useVendorDir {
+			packages = massagePackageSpecForVendor(packageName, packageDir, packages)
+		}
 	case "glide":
+
 	case "go_nativevendoring":
 	default:
 		return nil, errors.New("invalid vendor tool")
 	}
 
 	return packages, nil
+}
+
+func massagePackageSpecForVendor(packageName, packageDir string, packages []string) []string {
+	var newPackages []string
+
+	for _, pkg := range packages {
+		vendored, _ := libbuildpack.FileExists(filepath.Join(packageDir, "vendor", pkg))
+		if pkg == "." || !vendored {
+			newPackages = append(newPackages, pkg)
+		} else {
+			newPackages = append(newPackages, filepath.Join(packageName, "vendor", pkg))
+		}
+	}
+
+	return newPackages
 }
 
 func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {

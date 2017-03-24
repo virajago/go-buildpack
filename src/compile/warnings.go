@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func goVersionOverride(goVersion string) string {
 	warning := `Using $GOVERSION override.
@@ -10,6 +13,16 @@ If this isn't what you want please run:
     cf unset-env <app> GOVERSION`
 
 	return fmt.Sprintf(warning, goVersion)
+}
+
+func packageSpecOverride(goPackageSpec []string) string {
+	warning := `Using $GO_INSTALL_PACKAGE_SPEC override.
+    $GO_INSTALL_PACKAGE_SPEC = %s
+
+If this isn't what you want please run:
+    cf unset-env <app> GO_INSTALL_PACKAGE_SPEC`
+
+	return fmt.Sprintf(warning, strings.Join(goPackageSpec, " "))
 }
 
 func godirError() string {
@@ -37,6 +50,13 @@ environment variable to your app's package name`
 func unsupportedGO15VENDOREXPERIMENTerror() string {
 	errorMessage := `GO15VENDOREXPERIMENT is set, but is not supported by go1.7 and later.
 Run 'cf unset-env <app> GO15VENDOREXPERIMENT' before pushing again.`
+
+	return errorMessage
+}
+
+func godepsWorkspaceWarning() string {
+	errorMessage := `Godeps/_workspace/src and vendor/ exist
+code may not compile. Please convert all deps to vendor/`
 
 	return errorMessage
 }
