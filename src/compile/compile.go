@@ -255,7 +255,6 @@ func massagePackageSpecForVendor(mainPackageName, packageDir string, packages []
 
 func (gc *GoCompiler) MainPackageName(vendorTool string) (string, error) {
 	var mainPackageName string
-	var err error
 
 	switch vendorTool {
 	case "godep":
@@ -272,10 +271,11 @@ func (gc *GoCompiler) MainPackageName(vendorTool string) (string, error) {
 		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
 		defer gc.Compiler.Command.SetDir("")
 
-		mainPackageName, err = gc.Compiler.Command.CaptureStdout("glide", "name")
+		stdout, err := gc.Compiler.Command.CaptureStdout("glide", "name")
 		if err != nil {
 			return "", err
 		}
+		mainPackageName = strings.TrimSpace(stdout)
 	case "go_nativevendoring":
 		mainPackageName = os.Getenv("GOPACKAGENAME")
 		if mainPackageName == "" {
