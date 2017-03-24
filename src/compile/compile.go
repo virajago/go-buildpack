@@ -176,6 +176,47 @@ func (gc *GoCompiler) InstallPackages(mainPackageName, packageDir, goVersion, ve
 			packages = massagePackageSpecForVendor(mainPackageName, packageDir, packages)
 		}
 	case "glide":
+		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
+			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
+		} else {
+			packages = append(packages, ".")
+			gc.Compiler.Log.Warning("Installing package '.' (default)")
+		}
+
+		runGlideInstall := true
+
+		if vendorDirExists {
+			numSubDirs := 0
+			files, err := ioutil.ReadDir(filepath.Join(packageDir, "vendor"))
+			if err != nil {
+				return nil, err
+			}
+			for _, file := range files {
+				if file.IsDir() {
+					numSubDirs++
+				}
+			}
+
+			if numSubDirs > 0 {
+				runGlideInstall = false
+			}
+		}
+
+		if runGlideInstall {
+			gc.Compiler.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
+			gc.Compiler.Command.SetDir(packageDir)
+			defer gc.Compiler.Command.SetDir("")
+
+			err := gc.Compiler.Command.Run("glide", "install")
+			if err != nil {
+				return nil, err
+			}
+
+		} else {
+			gc.Compiler.Log.BeginStep("Note: skipping (glide install) due to non-empty vendor directory.")
+		}
+
+		packages = massagePackageSpecForVendor(mainPackageName, packageDir, packages)
 
 	case "go_nativevendoring":
 		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {

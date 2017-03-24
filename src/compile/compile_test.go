@@ -981,7 +981,12 @@ var _ = Describe("Compile", func() {
 
 				})
 				Context("packages are not vendored", func() {
+					It("returns the packages", func() {
+						packages, err := gc.InstallPackages(mainPackageName, packageDir, "1.8.3", vendorTool)
+						Expect(err).To(BeNil())
 
+						Expect(packages).To(Equal([]string{"a-package-name", "another-package"}))
+					})
 				})
 			})
 			Context("GO_INSTALL_PACKAGE_SPEC is not set", func() {
@@ -1033,6 +1038,90 @@ var _ = Describe("Compile", func() {
 		Context("the vendor tool is glide", func() {
 			BeforeEach(func() {
 				vendorTool = "glide"
+			})
+
+			Context("GO_INSTALL_PACKAGE_SPEC is set", func() {
+				var oldGoInstallPackageSpec string
+
+				BeforeEach(func() {
+					oldGoInstallPackageSpec = os.Getenv("GO_INSTALL_PACKAGE_SPEC")
+					err = os.Setenv("GO_INSTALL_PACKAGE_SPEC", "a-package-name another-package")
+					Expect(err).To(BeNil())
+				})
+
+				AfterEach(func() {
+					err = os.Setenv("GO_INSTALL_PACKAGE_SPEC", oldGoInstallPackageSpec)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns the packages", func() {
+					gomock.InOrder(
+						mockCommandRunner.EXPECT().SetDir(packageDir),
+						mockCommandRunner.EXPECT().Run("glide", "install").Return(nil),
+						mockCommandRunner.EXPECT().SetDir(""),
+					)
+
+					packages, err := gc.InstallPackages(mainPackageName, packageDir, "1.8.3", vendorTool)
+					Expect(err).To(BeNil())
+
+					Expect(packages).To(Equal([]string{"a-package-name", "another-package"}))
+				})
+
+				Context("packages are already vendored", func() {
+					BeforeEach(func() {
+						err = os.MkdirAll(filepath.Join(packageDir, "vendor", "another-package"), 0755)
+						Expect(err).To(BeNil())
+					})
+					It("handles the vendoring correctly", func() {
+						packages, err := gc.InstallPackages(mainPackageName, packageDir, "1.8.3", vendorTool)
+						Expect(err).To(BeNil())
+
+						Expect(packages).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
+					})
+				})
+				Context("packages are not already vendored", func() {
+					It("uses glide to install the packages", func() {
+						gomock.InOrder(
+							mockCommandRunner.EXPECT().SetDir(packageDir),
+							mockCommandRunner.EXPECT().Run("glide", "install").Do(func(_, _ string) {
+								os.MkdirAll(filepath.Join(packageDir, "vendor", "another-package"), 0755)
+
+							}),
+							mockCommandRunner.EXPECT().SetDir(""),
+						)
+
+						packages, err := gc.InstallPackages(mainPackageName, packageDir, "1.8.3", vendorTool)
+						Expect(err).To(BeNil())
+
+						Expect(packages).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
+					})
+				})
+
+			})
+			Context("GO_INSTALL_PACKAGE_SPEC is not set", func() {
+				It("returns default", func() {
+					gomock.InOrder(
+						mockCommandRunner.EXPECT().SetDir(packageDir),
+						mockCommandRunner.EXPECT().Run("glide", "install").Return(nil),
+						mockCommandRunner.EXPECT().SetDir(""),
+					)
+
+					packages, err := gc.InstallPackages(mainPackageName, packageDir, "1.8.3", vendorTool)
+					Expect(err).To(BeNil())
+					Expect(packages).To(Equal([]string{"."}))
+				})
+
+				It("logs a warning that it is using the default", func() {
+					gomock.InOrder(
+						mockCommandRunner.EXPECT().SetDir(packageDir),
+						mockCommandRunner.EXPECT().Run("glide", "install").Return(nil),
+						mockCommandRunner.EXPECT().SetDir(""),
+					)
+
+					_, err := gc.InstallPackages(mainPackageName, packageDir, "1.8.3", vendorTool)
+					Expect(err).To(BeNil())
+					Expect(buffer.String()).To(ContainSubstring("**WARNING** Installing package '.' (default)"))
+				})
 			})
 		})
 	})
