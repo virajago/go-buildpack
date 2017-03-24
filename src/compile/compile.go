@@ -272,7 +272,7 @@ func (gc *GoCompiler) MainPackageName(vendorTool string) (string, error) {
 		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
 		defer gc.Compiler.Command.SetDir("")
 
-		mainPackageName, err = gc.Compiler.Command.CaptureOutput("glide", "name")
+		mainPackageName, err = gc.Compiler.Command.CaptureStdout("glide", "name")
 		if err != nil {
 			return "", err
 		}

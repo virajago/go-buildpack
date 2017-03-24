@@ -695,7 +695,7 @@ var _ = Describe("Compile", func() {
 
 				gomock.InOrder(
 					mockCommandRunner.EXPECT().SetDir(buildDir),
-					mockCommandRunner.EXPECT().CaptureOutput("glide", "name").Return("go-package-name", nil),
+					mockCommandRunner.EXPECT().CaptureStdout("glide", "name").Return("go-package-name", nil),
 					mockCommandRunner.EXPECT().SetDir(""),
 				)
 
