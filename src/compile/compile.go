@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -155,6 +154,7 @@ func (gc *GoCompiler) AllPackages(packageDir, goVersion, vendorTool string) ([]s
 
 func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
 	var packageName string
+	var err error
 
 	switch vendorTool {
 	case "godep":
@@ -168,21 +168,13 @@ func (gc *GoCompiler) PackageName(vendorTool string) (string, error) {
 		packageName = godeps.ImportPath
 
 	case "glide":
-		stdout := new(bytes.Buffer)
-		stderr := new(bytes.Buffer)
-
-		gc.Compiler.Command.SetStdout(stdout)
-		gc.Compiler.Command.SetStderr(stderr)
 		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
+		defer gc.Compiler.Command.SetDir("")
 
-		err := gc.Compiler.Command.Run("glide", "name")
+		packageName, err = gc.Compiler.Command.CaptureOutput("glide", "name")
 		if err != nil {
-			gc.Compiler.Log.Info("stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
 			return "", err
 		}
-		gc.Compiler.Command.Reset()
-
-		packageName = stdout.String()
 	case "go_nativevendoring":
 		packageName = os.Getenv("GOPACKAGENAME")
 		if packageName == "" {

@@ -692,14 +692,12 @@ var _ = Describe("Compile", func() {
 
 		Context("the vendor tool is glide", func() {
 			It("returns the value of 'glide name'", func() {
-				mockCommandRunner.EXPECT().SetStdout(gomock.Any()).Do(func(buffer *bytes.Buffer) {
-					(*buffer).Write([]byte("go-package-name"))
-				})
-				mockCommandRunner.EXPECT().SetStderr(gomock.Any())
-				mockCommandRunner.EXPECT().SetDir(buildDir)
 
-				mockCommandRunner.EXPECT().Run("glide", "name").Return(nil)
-				mockCommandRunner.EXPECT().Reset()
+				gomock.InOrder(
+					mockCommandRunner.EXPECT().SetDir(buildDir),
+					mockCommandRunner.EXPECT().CaptureOutput("glide", "name").Return("go-package-name", nil),
+					mockCommandRunner.EXPECT().SetDir(""),
+				)
 
 				goPackageName, err := gc.PackageName("glide")
 				Expect(err).To(BeNil())

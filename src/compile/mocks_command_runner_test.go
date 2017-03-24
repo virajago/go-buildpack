@@ -69,6 +69,14 @@ func (_mr *_MockCommandRunnerRecorder) Reset() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Reset")
 }
 
+func (_m *MockCommandRunner) ResetOutput() {
+	_m.ctrl.Call(_m, "ResetOutput")
+}
+
+func (_mr *_MockCommandRunnerRecorder) ResetOutput() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetOutput")
+}
+
 func (_m *MockCommandRunner) Run(program string, args ...string) error {
 	_s := []interface{}{program}
 	for _, _x := range args {
@@ -82,4 +90,52 @@ func (_m *MockCommandRunner) Run(program string, args ...string) error {
 func (_mr *_MockCommandRunnerRecorder) Run(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0}, arg1...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Run", _s...)
+}
+
+func (_m *MockCommandRunner) CaptureOutput(program string, args ...string) (string, error) {
+	_s := []interface{}{program}
+	for _, _x := range args {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "CaptureOutput", _s...)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCommandRunnerRecorder) CaptureOutput(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0}, arg1...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CaptureOutput", _s...)
+}
+
+func (_m *MockCommandRunner) CaptureStdout(program string, args ...string) (string, error) {
+	_s := []interface{}{program}
+	for _, _x := range args {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "CaptureStdout", _s...)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCommandRunnerRecorder) CaptureStdout(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0}, arg1...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CaptureStdout", _s...)
+}
+
+func (_m *MockCommandRunner) CaptureStderr(program string, args ...string) (string, error) {
+	_s := []interface{}{program}
+	for _, _x := range args {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "CaptureStderr", _s...)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCommandRunnerRecorder) CaptureStderr(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0}, arg1...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CaptureStderr", _s...)
 }
