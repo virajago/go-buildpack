@@ -109,6 +109,12 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
+	err = ioutil.WriteFile("/tmp/buildpack-release-step.yml", []byte(releaseYAML(mainPackageName)), 0644)
+	if err != nil {
+		gc.Compiler.Log.Error("Unable to write relase yml: %s", err.Error())
+		return err
+	}
+
 	return nil
 
 }
