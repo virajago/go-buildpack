@@ -128,8 +128,8 @@ func (gc *GoCompiler) AllPackages(packageDir, goVersion, vendorTool string) ([]s
 		go16 := strings.Split(goVersion, ".")[0] == "1" && strings.Split(goVersion, ".")[1] == "6"
 		if os.Getenv("GO15VENDOREXPERIMENT") != "" {
 			if !go16 {
-				gc.Compiler.Log.Error("something")
-				return nil, errors.New("why")
+				gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
+				return nil, errors.New("unsupported GO15VENDOREXPERIMENT")
 			}
 
 		}

@@ -33,3 +33,10 @@ environment variable to your app's package name`
 
 	return errorMessage
 }
+
+func unsupportedGO15VENDOREXPERIMENTerror() string {
+	errorMessage := `GO15VENDOREXPERIMENT is set, but is not supported by go1.7 and later.
+Run 'cf unset-env <app> GO15VENDOREXPERIMENT' before pushing again.`
+
+	return errorMessage
+}

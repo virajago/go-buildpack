@@ -778,7 +778,7 @@ var _ = Describe("Compile", func() {
 
 					BeforeEach(func() {
 						oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
-						err = os.Setenv("GOPACKAGENAME", "0")
+						err = os.Setenv("GO15VENDOREXPERIMENT", "0")
 						Expect(err).To(BeNil())
 					})
 
@@ -791,9 +791,8 @@ var _ = Describe("Compile", func() {
 						_, err := gc.AllPackages(packageDir, "1.8.3", vendorTool)
 						Expect(err).NotTo(BeNil())
 
-						Expect(buffer.String).To(ContainSubstring("**ERROR** GO15VENDOREXPERIMENT is set, but is not supported by go1.7 or later"))
-						Expect(buffer.String).To(ContainSubstring("run `cf unset-env <app> GO15VENDOREXPERIMENT`"))
-						Expect(buffer.String).To(ContainSubstring("before pushing again"))
+						Expect(buffer.String()).To(ContainSubstring("**ERROR** GO15VENDOREXPERIMENT is set, but is not supported by go1.7 and later"))
+						Expect(buffer.String()).To(ContainSubstring("Run 'cf unset-env <app> GO15VENDOREXPERIMENT' before pushing again"))
 					})
 				})
 
