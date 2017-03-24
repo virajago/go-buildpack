@@ -90,12 +90,13 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
+	// unset git dir or it will mess with go install
 	err = os.Unsetenv("GIT_DIR")
 	if err != nil {
 		return err
 	}
 
-	buildFlags := gc.SetupBuildFlags(goVersion, vendorTool)
+	buildFlags := gc.SetupBuildFlags(goVersion)
 	packages, err := gc.InstallPackages(mainPackageName, packageDir, goVersion, vendorTool)
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to determine packages to install: %s", err.Error())
@@ -397,16 +398,13 @@ func (gc *GoCompiler) SetupGoPath(mainPackageName string) (string, error) {
 	return packageDir, nil
 }
 
-func (gc *GoCompiler) SetupBuildFlags(goVersion, tool string) []string {
-	flags := []string{"-tags cloudfoundry"}
+func (gc *GoCompiler) SetupBuildFlags(goVersion string) []string {
+	flags := []string{"-tags cloudfoundry", "--buildmode=pie"}
 
 	if os.Getenv("GO_LINKER_SYMBOL") != "" && os.Getenv("GO_LINKER_VALUE") != "" {
 		flags = append(flags, fmt.Sprintf("-ldflags \"-X %s=%s\"", os.Getenv("GO_LINKER_SYMBOL"), os.Getenv("GO_LINKER_VALUE")))
 	}
 
-	if strings.Split(goVersion, ".")[0] == "1" && strings.Split(goVersion, ".")[1] == "6" && tool == "godep" {
-		flags = append(flags, "--buildmode=pie")
-	}
 	return flags
 }
 

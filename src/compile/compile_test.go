@@ -498,25 +498,9 @@ var _ = Describe("Compile", func() {
 
 	Describe("SetupBuildFlags", func() {
 		Context("link environment variables not set", func() {
-			It("contains the correct tags", func() {
-				flags := gc.SetupBuildFlags("5.5.5", "go_nativevendoring")
-				Expect(flags).To(Equal([]string{"-tags cloudfoundry"}))
-			})
-		})
-
-		Context("the vendoring tool is godep", func() {
-			Context("the go version is 1.6.x", func() {
-				It("adds the buildmode flag", func() {
-					flags := gc.SetupBuildFlags("1.6.5", "godep")
-					Expect(flags).To(Equal([]string{"-tags cloudfoundry", "--buildmode=pie"}))
-				})
-
-			})
-			Context("the go version is not 1.6.x", func() {
-				It("contains the correct tags", func() {
-					flags := gc.SetupBuildFlags("5.5.5", "godep")
-					Expect(flags).To(Equal([]string{"-tags cloudfoundry"}))
-				})
+			It("contains the default flags", func() {
+				flags := gc.SetupBuildFlags("5.5.5")
+				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "--buildmode=pie"}))
 			})
 		})
 
@@ -547,8 +531,8 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("contains the ldflags argument", func() {
-				flags := gc.SetupBuildFlags("5.5.5", "go_nativevendoring")
-				Expect(flags).To(Equal([]string{"-tags cloudfoundry", `-ldflags "-X package.main.thing=some_string"`}))
+				flags := gc.SetupBuildFlags("5.5.5")
+				Expect(flags).To(Equal([]string{"-tags cloudfoundry", "--buildmode=pie", `-ldflags "-X package.main.thing=some_string"`}))
 			})
 		})
 	})
@@ -1125,4 +1109,11 @@ var _ = Describe("Compile", func() {
 			})
 		})
 	})
+	Describe("SelectVendorTool", func() {
+
+		Context("the tool is godep", func() {})
+		Context("the tool is glide or go_nativevendoring", func() {})
+
+	})
+
 })
