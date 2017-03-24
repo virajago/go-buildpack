@@ -114,17 +114,46 @@ func (gc *GoCompiler) Compile() error {
 }
 
 func (gc *GoCompiler) CompileApp(packages, flags []string, packageDir, vendorTool string) error {
+	cmd := "go"
 	args := []string{"install", "-v"}
 	args = append(args, flags...)
 	args = append(args, packages...)
 
 	switch vendorTool {
 	case "godep":
+		vendorExists, err := libbuildpack.FileExists(filepath.Join(packageDir, "vendor"))
+		if err != nil {
+			return err
+		}
+
+		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(packageDir, "Godeps", "_workspace", "src"))
+		if err != nil {
+			return err
+		}
+
+		if godepsWorkspaceExists {
+			args = append([]string{"go"}, args...)
+			cmd = "godep"
+			if vendorExists {
+				gc.Compiler.Log.Warning(godepAndVendorWarning())
+			}
+		} else if !vendorExists {
+			gc.Compiler.Log.Warning("vendor/ directory does not exist.")
+		}
+
+		gc.Compiler.Log.BeginStep(fmt.Sprintf("Running: %s %s", cmd, strings.Join(args, " ")))
+
+		gc.Compiler.Command.SetDir(packageDir)
+		defer gc.Compiler.Command.SetDir("")
+
+		err = gc.Compiler.Command.Run(cmd, args...)
+		if err != nil {
+			return err
+		}
 	case "glide":
 		fallthrough
 	case "go_nativevendoring":
-		installCommandMessage := fmt.Sprintf("Running: go %s", strings.Join(args, " "))
-		gc.Compiler.Log.BeginStep(installCommandMessage)
+		gc.Compiler.Log.BeginStep(fmt.Sprintf("Running: go %s", strings.Join(args, " ")))
 
 		gc.Compiler.Command.SetDir(packageDir)
 		defer gc.Compiler.Command.SetDir("")
