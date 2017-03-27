@@ -120,6 +120,47 @@ func (gc *GoCompiler) Compile() error {
 	return nil
 }
 
+func (gc *GoCompiler) SelectVendorTool() (vendorTool string, err error) {
+	godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
+	isGodep, err := libbuildpack.FileExists(godepsJSONFile)
+	if err != nil {
+		return "", err
+	}
+	if isGodep {
+		return "godep", nil
+	}
+
+	godirFile := filepath.Join(gc.Compiler.BuildDir, ".godir")
+	isGodir, err := libbuildpack.FileExists(godirFile)
+	if err != nil {
+		return "", err
+	}
+	if isGodir {
+		gc.Compiler.Log.Error(godirError())
+		return "", errors.New(".godir deprecated")
+	}
+
+	glideFile := filepath.Join(gc.Compiler.BuildDir, "glide.yaml")
+	isGlide, err := libbuildpack.FileExists(glideFile)
+	if err != nil {
+		return "", err
+	}
+	if isGlide {
+		return "glide", nil
+	}
+
+	isGB, err := gc.isGB()
+	if err != nil {
+		return "", err
+	}
+	if isGB {
+		gc.Compiler.Log.Error(gbError())
+		return "", errors.New("gb unsupported")
+	}
+
+	return "go_nativevendoring", nil
+}
+
 func (gc *GoCompiler) InstallVendorTool() error {
 	if gc.VendorTool == "go_nativevendoring" {
 		return nil
@@ -145,260 +186,6 @@ func (gc *GoCompiler) InstallVendorTool() error {
 	}
 
 	return addToPath(filepath.Join(installDir, "bin"))
-}
-
-func (gc *GoCompiler) MainPackagePath() string {
-	return filepath.Join(gc.GoPath, "src", gc.MainPackageName)
-}
-
-func (gc *GoCompiler) CreateStartupScripts() error {
-	var err error
-
-	if os.Getenv("GO_INSTALL_TOOLS_IN_IMAGE") == "true" {
-		gc.Compiler.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
-
-		imageDir := filepath.Join(gc.Compiler.BuildDir, ".cloudfoundry")
-		err = os.MkdirAll(imageDir, 0755)
-		if err != nil {
-			return err
-		}
-		err = libbuildpack.CopyDirectory(gc.goInstallLocation(), imageDir)
-		if err != nil {
-			return err
-		}
-
-		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "goroot.sh", goRootScript())
-		if err != nil {
-			return err
-		}
-	}
-
-	if os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true" {
-		gc.Compiler.Log.BeginStep("Cleaning up $GOPATH/pkg")
-		err = os.RemoveAll(filepath.Join(gc.GoPath, "pkg"))
-		if err != nil {
-			return err
-		}
-
-		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "zzgopath.sh", zzGoPathScript(gc.MainPackageName))
-		if err != nil {
-			return err
-		}
-	}
-
-	return libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "go.sh", goScript())
-}
-
-func (gc *GoCompiler) goInstallLocation() string {
-	return filepath.Join(gc.Compiler.CacheDir, "go"+gc.GoVersion)
-}
-
-func (gc *GoCompiler) CompileApp() error {
-	cmd := "go"
-	args := []string{"install", "-v"}
-	args = append(args, gc.BuildFlags...)
-	args = append(args, gc.PackageList...)
-
-	if gc.VendorTool == "godep" {
-		vendorExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "vendor"))
-		if err != nil {
-			return err
-		}
-
-		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "Godeps", "_workspace", "src"))
-		if err != nil {
-			return err
-		}
-
-		if godepsWorkspaceExists {
-			args = append([]string{"go"}, args...)
-			cmd = "godep"
-			if vendorExists {
-				gc.Compiler.Log.Warning(godepAndVendorWarning())
-			}
-		} else if !vendorExists {
-			gc.Compiler.Log.Warning("vendor/ directory does not exist.")
-		}
-	}
-
-	gc.Compiler.Log.BeginStep(fmt.Sprintf("Running: %s %s", cmd, strings.Join(args, " ")))
-
-	gc.Compiler.Command.SetDir(gc.MainPackagePath())
-	defer gc.Compiler.Command.SetDir("")
-
-	err := gc.Compiler.Command.Run(cmd, args...)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
-	var packages []string
-	useVendorDir := true
-	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "vendor"))
-	if err != nil {
-		return nil, err
-	}
-	go16 := strings.Split(gc.GoVersion, ".")[0] == "1" && strings.Split(gc.GoVersion, ".")[1] == "6"
-
-	switch gc.VendorTool {
-	case "godep":
-		if os.Getenv("GO15VENDOREXPERIMENT") != "" {
-			if !go16 {
-				gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
-				return nil, errors.New("unsupported GO15VENDOREXPERIMENT")
-			}
-			if os.Getenv("GO15VENDOREXPERIMENT") == "0" {
-				useVendorDir = false
-			}
-		}
-
-		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "Godeps", "_workspace", "src"))
-		if err != nil {
-			return nil, err
-		}
-		if godepsWorkspaceExists {
-			useVendorDir = false
-
-			if vendorDirExists {
-				gc.Compiler.Log.Warning(godepsWorkspaceWarning())
-			}
-		}
-
-		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
-			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
-			gc.Compiler.Log.Warning(packageSpecOverride(packages))
-		} else {
-			godepsJSONFile := filepath.Join(gc.MainPackagePath(), "Godeps", "Godeps.json")
-			var godeps godepsJSON
-			err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
-			if err != nil {
-				gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
-				return nil, err
-			}
-			packages = godeps.Packages
-		}
-
-		if len(packages) == 0 {
-			gc.Compiler.Log.Warning("Installing package '.' (default)")
-			packages = append(packages, ".")
-		}
-
-		if useVendorDir {
-			packages = gc.updatePackagesForVendor(packages)
-		}
-	case "glide":
-		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
-			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
-		} else {
-			packages = append(packages, ".")
-			gc.Compiler.Log.Warning("Installing package '.' (default)")
-		}
-
-		runGlideInstall := true
-
-		if vendorDirExists {
-			numSubDirs := 0
-			files, err := ioutil.ReadDir(filepath.Join(gc.MainPackagePath(), "vendor"))
-			if err != nil {
-				return nil, err
-			}
-			for _, file := range files {
-				if file.IsDir() {
-					numSubDirs++
-				}
-			}
-
-			if numSubDirs > 0 {
-				runGlideInstall = false
-			}
-		}
-
-		if runGlideInstall {
-			gc.Compiler.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
-			gc.Compiler.Command.SetDir(gc.MainPackagePath())
-			defer gc.Compiler.Command.SetDir("")
-
-			err := gc.Compiler.Command.Run("glide", "install")
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			gc.Compiler.Log.BeginStep("Note: skipping (glide install) due to non-empty vendor directory.")
-		}
-
-		packages = gc.updatePackagesForVendor(packages)
-
-	case "go_nativevendoring":
-		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
-			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
-		} else {
-			packages = append(packages, ".")
-			gc.Compiler.Log.Warning("Installing package '.' (default)")
-		}
-
-		if os.Getenv("GO15VENDOREXPERIMENT") == "0" && go16 {
-			gc.Compiler.Log.Error(mustUseVendorError())
-			return nil, errors.New("must use vendor/ for go native vendoring")
-		}
-		packages = gc.updatePackagesForVendor(packages)
-	default:
-		return nil, errors.New("invalid vendor tool")
-	}
-
-	return packages, nil
-}
-
-func (gc *GoCompiler) updatePackagesForVendor(packages []string) []string {
-	var newPackages []string
-
-	for _, pkg := range packages {
-		vendored, _ := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "vendor", pkg))
-		if pkg == "." || !vendored {
-			newPackages = append(newPackages, pkg)
-		} else {
-			newPackages = append(newPackages, filepath.Join(gc.MainPackageName, "vendor", pkg))
-		}
-	}
-
-	return newPackages
-}
-
-func (gc *GoCompiler) PackageName() (string, error) {
-	var mainPackageName string
-
-	switch gc.VendorTool {
-	case "godep":
-		godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
-		var godeps godepsJSON
-		err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
-		if err != nil {
-			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
-			return "", err
-		}
-		mainPackageName = godeps.ImportPath
-
-	case "glide":
-		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
-		defer gc.Compiler.Command.SetDir("")
-
-		stdout, err := gc.Compiler.Command.CaptureStdout("glide", "name")
-		if err != nil {
-			return "", err
-		}
-		mainPackageName = strings.TrimSpace(stdout)
-	case "go_nativevendoring":
-		mainPackageName = os.Getenv("GOPACKAGENAME")
-		if mainPackageName == "" {
-			gc.Compiler.Log.Error(noGOPACKAGENAMEerror())
-			return "", errors.New("GOPACKAGENAME unset")
-		}
-
-	default:
-		return "", errors.New("invalid vendor tool")
-	}
-	return mainPackageName, nil
 }
 
 func (gc *GoCompiler) SelectGoVersion() (string, error) {
@@ -442,13 +229,127 @@ func (gc *GoCompiler) SelectGoVersion() (string, error) {
 	return gc.ParseGoVersion(goVersion)
 }
 
-var skipMoveFile = map[string]bool{
-	"Procfile": true,
-	".profile": true,
-	"src":      true,
+func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
+	existingVersions := gc.Compiler.Manifest.AllDependencyVersions("go")
+
+	if len(strings.Split(partialGoVersion, ".")) == 2 {
+		partialGoVersion += ".x"
+	}
+
+	strippedGoVersion := strings.TrimLeft(partialGoVersion, "go")
+
+	expandedVer, err := libbuildpack.FindMatchingVersion(strippedGoVersion, existingVersions)
+	if err != nil {
+		return "", err
+	}
+
+	return expandedVer, nil
+}
+
+func (gc *GoCompiler) InstallGo() error {
+	err := os.MkdirAll(filepath.Join(gc.Compiler.BuildDir, "bin"), 0755)
+	if err != nil {
+		return err
+	}
+
+	goInstallDir := gc.goInstallLocation()
+
+	goInstalled, err := libbuildpack.FileExists(filepath.Join(goInstallDir, "go"))
+	if err != nil {
+		return err
+	}
+
+	if goInstalled {
+		gc.Compiler.Log.BeginStep("Using go%s", gc.GoVersion)
+	} else {
+		gc.Compiler.Log.BeginStep("Installing go%s", gc.GoVersion)
+
+		err = gc.clearCache()
+		if err != nil {
+			return fmt.Errorf("clearing cache: %s", err.Error())
+		}
+
+		err = os.MkdirAll(goInstallDir, 0755)
+		if err != nil {
+			return err
+		}
+
+		dep := libbuildpack.Dependency{Name: "go", Version: gc.GoVersion}
+		err = gc.Compiler.Manifest.InstallDependency(dep, goInstallDir)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = os.Setenv("GOROOT", filepath.Join(goInstallDir, "go"))
+	if err != nil {
+		return err
+	}
+
+	return os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), filepath.Join(goInstallDir, "go", "bin")))
+}
+
+func (gc *GoCompiler) PackageName() (string, error) {
+	var mainPackageName string
+
+	switch gc.VendorTool {
+	case "godep":
+		godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
+		var godeps godepsJSON
+		err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+		if err != nil {
+			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
+			return "", err
+		}
+		mainPackageName = godeps.ImportPath
+
+	case "glide":
+		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
+		defer gc.Compiler.Command.SetDir("")
+
+		stdout, err := gc.Compiler.Command.CaptureStdout("glide", "name")
+		if err != nil {
+			return "", err
+		}
+		mainPackageName = strings.TrimSpace(stdout)
+	case "go_nativevendoring":
+		mainPackageName = os.Getenv("GOPACKAGENAME")
+		if mainPackageName == "" {
+			gc.Compiler.Log.Error(noGOPACKAGENAMEerror())
+			return "", errors.New("GOPACKAGENAME unset")
+		}
+
+	default:
+		return "", errors.New("invalid vendor tool")
+	}
+	return mainPackageName, nil
+}
+
+func (gc *GoCompiler) CheckBinDirectory() error {
+	fi, err := os.Stat(filepath.Join(gc.Compiler.BuildDir, "bin"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	if fi.Mode().IsDir() {
+		return nil
+	}
+
+	gc.Compiler.Log.Error("File bin exists and is not a directory.")
+	return errors.New("invalid bin")
 }
 
 func (gc *GoCompiler) SetupGoPath() (string, error) {
+	var skipMoveFile = map[string]bool{
+		"Procfile": true,
+		".profile": true,
+		"src":      true,
+	}
+
 	var goPath string
 	goPathInImage := os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true"
 
@@ -528,123 +429,222 @@ func (gc *GoCompiler) SetupBuildFlags() []string {
 	return flags
 }
 
-func (gc *GoCompiler) SelectVendorTool() (vendorTool string, err error) {
-	godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
-	isGodep, err := libbuildpack.FileExists(godepsJSONFile)
+func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
+	var packages []string
+	useVendorDir := true
+	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "vendor"))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if isGodep {
-		return "godep", nil
-	}
+	go16 := strings.Split(gc.GoVersion, ".")[0] == "1" && strings.Split(gc.GoVersion, ".")[1] == "6"
 
-	godirFile := filepath.Join(gc.Compiler.BuildDir, ".godir")
-	isGodir, err := libbuildpack.FileExists(godirFile)
-	if err != nil {
-		return "", err
-	}
-	if isGodir {
-		gc.Compiler.Log.Error(godirError())
-		return "", errors.New(".godir deprecated")
-	}
-
-	glideFile := filepath.Join(gc.Compiler.BuildDir, "glide.yaml")
-	isGlide, err := libbuildpack.FileExists(glideFile)
-	if err != nil {
-		return "", err
-	}
-	if isGlide {
-		return "glide", nil
-	}
-
-	isGB, err := gc.isGB()
-	if err != nil {
-		return "", err
-	}
-	if isGB {
-		gc.Compiler.Log.Error(gbError())
-		return "", errors.New("gb unsupported")
-	}
-
-	return "go_nativevendoring", nil
-}
-
-func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
-	existingVersions := gc.Compiler.Manifest.AllDependencyVersions("go")
-
-	if len(strings.Split(partialGoVersion, ".")) == 2 {
-		partialGoVersion += ".x"
-	}
-
-	strippedGoVersion := strings.TrimLeft(partialGoVersion, "go")
-
-	expandedVer, err := libbuildpack.FindMatchingVersion(strippedGoVersion, existingVersions)
-	if err != nil {
-		return "", err
-	}
-
-	return expandedVer, nil
-}
-
-func (gc *GoCompiler) CheckBinDirectory() error {
-	fi, err := os.Stat(filepath.Join(gc.Compiler.BuildDir, "bin"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
+	switch gc.VendorTool {
+	case "godep":
+		if os.Getenv("GO15VENDOREXPERIMENT") != "" {
+			if !go16 {
+				gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
+				return nil, errors.New("unsupported GO15VENDOREXPERIMENT")
+			}
+			if os.Getenv("GO15VENDOREXPERIMENT") == "0" {
+				useVendorDir = false
+			}
 		}
 
-		return err
-	}
-
-	if fi.Mode().IsDir() {
-		return nil
-	}
-
-	gc.Compiler.Log.Error("File bin exists and is not a directory.")
-	return errors.New("invalid bin")
-}
-
-func (gc *GoCompiler) InstallGo() error {
-	err := os.MkdirAll(filepath.Join(gc.Compiler.BuildDir, "bin"), 0755)
-	if err != nil {
-		return err
-	}
-
-	goInstallDir := gc.goInstallLocation()
-
-	goInstalled, err := libbuildpack.FileExists(filepath.Join(goInstallDir, "go"))
-	if err != nil {
-		return err
-	}
-
-	if goInstalled {
-		gc.Compiler.Log.BeginStep("Using go%s", gc.GoVersion)
-	} else {
-		gc.Compiler.Log.BeginStep("Installing go%s", gc.GoVersion)
-
-		err = gc.clearCache()
+		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "Godeps", "_workspace", "src"))
 		if err != nil {
-			return fmt.Errorf("clearing cache: %s", err.Error())
+			return nil, err
+		}
+		if godepsWorkspaceExists {
+			useVendorDir = false
+
+			if vendorDirExists {
+				gc.Compiler.Log.Warning(godepsWorkspaceWarning())
+			}
 		}
 
-		err = os.MkdirAll(goInstallDir, 0755)
+		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
+			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
+			gc.Compiler.Log.Warning(packageSpecOverride(packages))
+		} else {
+			godepsJSONFile := filepath.Join(gc.mainPackagePath(), "Godeps", "Godeps.json")
+			var godeps godepsJSON
+			err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+			if err != nil {
+				gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
+				return nil, err
+			}
+			packages = godeps.Packages
+		}
+
+		if len(packages) == 0 {
+			gc.Compiler.Log.Warning("Installing package '.' (default)")
+			packages = append(packages, ".")
+		}
+
+		if useVendorDir {
+			packages = gc.updatePackagesForVendor(packages)
+		}
+	case "glide":
+		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
+			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
+		} else {
+			packages = append(packages, ".")
+			gc.Compiler.Log.Warning("Installing package '.' (default)")
+		}
+
+		runGlideInstall := true
+
+		if vendorDirExists {
+			numSubDirs := 0
+			files, err := ioutil.ReadDir(filepath.Join(gc.mainPackagePath(), "vendor"))
+			if err != nil {
+				return nil, err
+			}
+			for _, file := range files {
+				if file.IsDir() {
+					numSubDirs++
+				}
+			}
+
+			if numSubDirs > 0 {
+				runGlideInstall = false
+			}
+		}
+
+		if runGlideInstall {
+			gc.Compiler.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
+			gc.Compiler.Command.SetDir(gc.mainPackagePath())
+			defer gc.Compiler.Command.SetDir("")
+
+			err := gc.Compiler.Command.Run("glide", "install")
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			gc.Compiler.Log.BeginStep("Note: skipping (glide install) due to non-empty vendor directory.")
+		}
+
+		packages = gc.updatePackagesForVendor(packages)
+
+	case "go_nativevendoring":
+		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
+			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
+		} else {
+			packages = append(packages, ".")
+			gc.Compiler.Log.Warning("Installing package '.' (default)")
+		}
+
+		if os.Getenv("GO15VENDOREXPERIMENT") == "0" && go16 {
+			gc.Compiler.Log.Error(mustUseVendorError())
+			return nil, errors.New("must use vendor/ for go native vendoring")
+		}
+		packages = gc.updatePackagesForVendor(packages)
+	default:
+		return nil, errors.New("invalid vendor tool")
+	}
+
+	return packages, nil
+}
+
+func (gc *GoCompiler) CompileApp() error {
+	cmd := "go"
+	args := []string{"install", "-v"}
+	args = append(args, gc.BuildFlags...)
+	args = append(args, gc.PackageList...)
+
+	if gc.VendorTool == "godep" {
+		vendorExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "vendor"))
 		if err != nil {
 			return err
 		}
 
-		dep := libbuildpack.Dependency{Name: "go", Version: gc.GoVersion}
-		err = gc.Compiler.Manifest.InstallDependency(dep, goInstallDir)
+		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "Godeps", "_workspace", "src"))
+		if err != nil {
+			return err
+		}
+
+		if godepsWorkspaceExists {
+			args = append([]string{"go"}, args...)
+			cmd = "godep"
+			if vendorExists {
+				gc.Compiler.Log.Warning(godepAndVendorWarning())
+			}
+		} else if !vendorExists {
+			gc.Compiler.Log.Warning("vendor/ directory does not exist.")
+		}
+	}
+
+	gc.Compiler.Log.BeginStep(fmt.Sprintf("Running: %s %s", cmd, strings.Join(args, " ")))
+
+	gc.Compiler.Command.SetDir(gc.mainPackagePath())
+	defer gc.Compiler.Command.SetDir("")
+
+	err := gc.Compiler.Command.Run(cmd, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (gc *GoCompiler) CreateStartupScripts() error {
+	var err error
+
+	if os.Getenv("GO_INSTALL_TOOLS_IN_IMAGE") == "true" {
+		gc.Compiler.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
+
+		imageDir := filepath.Join(gc.Compiler.BuildDir, ".cloudfoundry")
+		err = os.MkdirAll(imageDir, 0755)
+		if err != nil {
+			return err
+		}
+		err = libbuildpack.CopyDirectory(gc.goInstallLocation(), imageDir)
+		if err != nil {
+			return err
+		}
+
+		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "goroot.sh", goRootScript())
 		if err != nil {
 			return err
 		}
 	}
 
-	err = os.Setenv("GOROOT", filepath.Join(goInstallDir, "go"))
-	if err != nil {
-		return err
+	if os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true" {
+		gc.Compiler.Log.BeginStep("Cleaning up $GOPATH/pkg")
+		err = os.RemoveAll(filepath.Join(gc.GoPath, "pkg"))
+		if err != nil {
+			return err
+		}
+
+		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "zzgopath.sh", zzGoPathScript(gc.MainPackageName))
+		if err != nil {
+			return err
+		}
 	}
 
-	return os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), filepath.Join(goInstallDir, "go", "bin")))
+	return libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "go.sh", goScript())
+}
+
+func (gc *GoCompiler) mainPackagePath() string {
+	return filepath.Join(gc.GoPath, "src", gc.MainPackageName)
+}
+
+func (gc *GoCompiler) goInstallLocation() string {
+	return filepath.Join(gc.Compiler.CacheDir, "go"+gc.GoVersion)
+}
+
+func (gc *GoCompiler) updatePackagesForVendor(packages []string) []string {
+	var newPackages []string
+
+	for _, pkg := range packages {
+		vendored, _ := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "vendor", pkg))
+		if pkg == "." || !vendored {
+			newPackages = append(newPackages, pkg)
+		} else {
+			newPackages = append(newPackages, filepath.Join(gc.MainPackageName, "vendor", pkg))
+		}
+	}
+
+	return newPackages
 }
 
 func (gc *GoCompiler) clearCache() error {
