@@ -171,7 +171,7 @@ var _ = Describe("Compile", func() {
 		})
 	})
 
-	Describe("Installing vendor tools", func() {
+	Describe("InstallVendorTool", func() {
 		var (
 			oldPath string
 			tempDir string
@@ -189,14 +189,18 @@ var _ = Describe("Compile", func() {
 		})
 
 		Context("the tool is godep", func() {
+			BeforeEach(func() {
+				vendorTool = "godep"
+			})
+
 			It("installs godep to the requested dir, adding it to the PATH", func() {
 				dep := libbuildpack.Dependency{Name: "godep", Version: "v1.2.3"}
-				installDir := filepath.Join(tempDir, "godep")
+				installDir := filepath.Join("/tmp", "godep")
 
 				mockManifest.EXPECT().DefaultVersion("godep").Return(dep, nil)
 				mockManifest.EXPECT().InstallDependency(dep, installDir).Return(nil)
 
-				err = gc.InstallGodep(installDir)
+				err = gc.InstallVendorTool()
 				Expect(err).To(BeNil())
 
 				Expect(installDir).To(BeADirectory())
@@ -209,15 +213,19 @@ var _ = Describe("Compile", func() {
 
 			})
 		})
-		Describe("the tool is glide", func() {
+		Context("the tool is glide", func() {
+			BeforeEach(func() {
+				vendorTool = "glide"
+			})
+
 			It("installs glide to the requested dir, adding it to the PATH", func() {
 				dep := libbuildpack.Dependency{Name: "glide", Version: "v5.6.7"}
-				installDir := filepath.Join(tempDir, "glide")
+				installDir := filepath.Join("/tmp", "glide")
 
 				mockManifest.EXPECT().DefaultVersion("glide").Return(dep, nil)
 				mockManifest.EXPECT().InstallDependency(dep, installDir).Return(nil)
 
-				err = gc.InstallGlide(installDir)
+				err = gc.InstallVendorTool()
 				Expect(err).To(BeNil())
 
 				Expect(installDir).To(BeADirectory())
@@ -228,6 +236,25 @@ var _ = Describe("Compile", func() {
 				Expect(buffer.String()).To(ContainSubstring("-----> Installing glide"))
 				Expect(buffer.String()).To(ContainSubstring("       glide version: v5.6.7"))
 
+			})
+		})
+		Context("the tool is go_nativevendoring", func() {
+			BeforeEach(func() {
+				vendorTool = "go_nativevendoring"
+			})
+
+			It("does not install anything", func() {
+
+				mockManifest.EXPECT().DefaultVersion(gomock.Any()).Times(0)
+				mockManifest.EXPECT().InstallDependency(gomock.Any(), gomock.Any()).Times(0)
+
+				err = gc.InstallVendorTool()
+				Expect(err).To(BeNil())
+
+				newPath := os.Getenv("PATH")
+				Expect(newPath).To(Equal(oldPath))
+
+				Expect(buffer.String()).To(Equal(""))
 			})
 		})
 	})
