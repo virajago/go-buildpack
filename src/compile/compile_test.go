@@ -1244,6 +1244,7 @@ var _ = Describe("Compile", func() {
 				})
 			})
 		})
+
 		Context("the tool is glide", func() {
 			It("logs and runs the install command it is going to run", func() {
 				gomock.InOrder(
@@ -1258,6 +1259,7 @@ var _ = Describe("Compile", func() {
 				Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
 			})
 		})
+
 		Context("the tool is go_nativevendoring", func() {
 			It("logs and runs the install command it is going to run", func() {
 				gomock.InOrder(
@@ -1272,6 +1274,120 @@ var _ = Describe("Compile", func() {
 				Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
 			})
 		})
+	})
 
+	Describe("CreateStartupScripts", func() {
+		var (
+			goVersion   string
+			packageName string
+		)
+
+		BeforeEach(func() {
+			goVersion = "3.4.5"
+			packageName = "a-go-app"
+
+			goDir := filepath.Join(cacheDir, "go"+goVersion, "go")
+			err = os.MkdirAll(goDir, 0755)
+			Expect(err).To(BeNil())
+		})
+
+		It("writes the go.sh script to .profile.d", func() {
+			err = gc.CreateStartupScripts(goVersion, packageName)
+			Expect(err).To(BeNil())
+
+			contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "go.sh"))
+			Expect(err).To(BeNil())
+
+			Expect(string(contents)).To(Equal("PATH=$PATH:$HOME/bin"))
+		})
+
+		Context("GO_INSTALL_TOOLS_IN_IMAGE is not set", func() {
+			It("does not copy the go toolchain", func() {
+				err = gc.CreateStartupScripts(goVersion, packageName)
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(buildDir, ".cloudfoundry", "go")).NotTo(BeADirectory())
+			})
+		})
+
+		Context("GO_INSTALL_TOOLS_IN_IMAGE = true", func() {
+			var oldGoInstallToolsInImage string
+
+			BeforeEach(func() {
+				oldGoInstallToolsInImage = os.Getenv("GO_INSTALL_TOOLS_IN_IMAGE")
+				err = os.Setenv("GO_INSTALL_TOOLS_IN_IMAGE", "true")
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				err = os.Setenv("GO_INSTALL_TOOLS_IN_IMAGE", oldGoInstallToolsInImage)
+				Expect(err).To(BeNil())
+			})
+
+			It("copies the go toolchain", func() {
+				err = gc.CreateStartupScripts(goVersion, packageName)
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(buildDir, ".cloudfoundry", "go")).To(BeADirectory())
+			})
+
+			It("logs that the tool chain was copied", func() {
+				err = gc.CreateStartupScripts(goVersion, packageName)
+				Expect(err).To(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("-----> Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go"))
+			})
+
+			It("writes the goroot.sh script to .profile.d", func() {
+				err = gc.CreateStartupScripts(goVersion, packageName)
+				Expect(err).To(BeNil())
+
+				contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "goroot.sh"))
+				Expect(err).To(BeNil())
+
+				Expect(string(contents)).To(ContainSubstring("export GOROOT=$HOME/.cloudfoundry/go"))
+				Expect(string(contents)).To(ContainSubstring("PATH=$PATH:$GOROOT/bin"))
+			})
+		})
+
+		Context("GO_SETUP_GOPATH_IN_IMAGE = true", func() {
+			var (
+				oldGoSetupGopathInImage string
+			)
+
+			BeforeEach(func() {
+				oldGoSetupGopathInImage = os.Getenv("GO_SETUP_GOPATH_IN_IMAGE")
+				err = os.Setenv("GO_SETUP_GOPATH_IN_IMAGE", "true")
+				Expect(err).To(BeNil())
+
+				err = os.MkdirAll(filepath.Join(buildDir, "pkg"), 0755)
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				err = os.Setenv("GO_SETUP_GOPATH_IN_IMAGE", oldGoSetupGopathInImage)
+				Expect(err).To(BeNil())
+			})
+
+			It("cleans up the pkg directory", func() {
+				err = gc.CreateStartupScripts(goVersion, packageName)
+				Expect(err).To(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("-----> Cleaning up $GOPATH/pkg"))
+				Expect(filepath.Join(buildDir, "pkg")).ToNot(BeADirectory())
+			})
+
+			It("writes the zzgopath.sh script to .profile.d", func() {
+				err = gc.CreateStartupScripts(goVersion, packageName)
+				Expect(err).To(BeNil())
+
+				contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "zzgopath.sh"))
+				Expect(err).To(BeNil())
+
+				Expect(string(contents)).To(ContainSubstring("export GOPATH=$HOME"))
+				Expect(string(contents)).To(ContainSubstring("cd $GOPATH/src/" + packageName))
+
+			})
+		})
 	})
 })

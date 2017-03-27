@@ -115,8 +115,58 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	return nil
+	err = gc.CreateStartupScripts(goVersion, mainPackageName)
+	if err != nil {
+		gc.Compiler.Log.Error("Unable to create startup scripts: %s", err.Error())
+		return err
+	}
 
+	return nil
+}
+
+func (gc *GoCompiler) CreateStartupScripts(goVersion, mainPackageName string) error {
+	var err error
+
+	if os.Getenv("GO_INSTALL_TOOLS_IN_IMAGE") == "true" {
+		gc.Compiler.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
+
+		imageDir := filepath.Join(gc.Compiler.BuildDir, ".cloudfoundry")
+		err = os.MkdirAll(imageDir, 0755)
+		if err != nil {
+			return err
+		}
+		err = libbuildpack.CopyDirectory(gc.goInstallLocation(goVersion), imageDir)
+		if err != nil {
+			return err
+		}
+
+		gorootContents := "export GOROOT=$HOME/.cloudfoundry/go\nPATH=$PATH:$GOROOT/bin"
+		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "goroot.sh", gorootContents)
+		if err != nil {
+			return err
+		}
+	}
+
+	if os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true" {
+		gc.Compiler.Log.BeginStep("Cleaning up $GOPATH/pkg")
+		err = os.RemoveAll(filepath.Join(gc.Compiler.BuildDir, "pkg"))
+		if err != nil {
+			return err
+		}
+
+		zzGoPathContents := fmt.Sprintf("export GOPATH=$HOME\ncd $GOPATH/src/%s", mainPackageName)
+
+		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "zzgopath.sh", zzGoPathContents)
+		if err != nil {
+			return err
+		}
+	}
+
+	return libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "go.sh", "PATH=$PATH:$HOME/bin")
+}
+
+func (gc *GoCompiler) goInstallLocation(goVersion string) string {
+	return filepath.Join(gc.Compiler.CacheDir, "go"+goVersion)
 }
 
 func (gc *GoCompiler) CompileApp(packages, flags []string, packageDir, vendorTool string) error {
@@ -590,7 +640,7 @@ func (gc *GoCompiler) InstallGo(goVersion string) error {
 		return err
 	}
 
-	goInstallDir := filepath.Join(gc.Compiler.CacheDir, "go"+goVersion)
+	goInstallDir := gc.goInstallLocation(goVersion)
 
 	goInstalled, err := libbuildpack.FileExists(filepath.Join(goInstallDir, "go"))
 	if err != nil {
