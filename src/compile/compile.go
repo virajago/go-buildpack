@@ -21,10 +21,13 @@ type GoCompiler struct {
 	BuildFlags      []string
 }
 
-type godepsJSON struct {
-	ImportPath string   `json:"ImportPath"`
-	GoVersion  string   `json:"GoVersion"`
-	Packages   []string `json:"Packages"`
+type VendorTool interface {
+	Name() string
+	Install() error
+	SelectGoVersion() (string, error)
+	MainPackageName() (string, error)
+	PackagesToInstall() ([]string, error)
+	CompileApp() error
 }
 
 func main() {
@@ -195,8 +198,8 @@ func (gc *GoCompiler) SelectGoVersion() (string, error) {
 	switch gc.VendorTool {
 	case "godep":
 		gc.Compiler.Log.BeginStep("Checking Godeps/Godeps.json file")
-		var godeps godepsJSON
-		err = libbuildpack.NewJSON().Load(filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json"), &godeps)
+		var godep godep
+		err = libbuildpack.NewJSON().Load(filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json"), &godep)
 		if err != nil {
 			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
 			return "", err
@@ -207,7 +210,7 @@ func (gc *GoCompiler) SelectGoVersion() (string, error) {
 			goVersion = envGoVersion
 			gc.Compiler.Log.Warning(goVersionOverride(envGoVersion))
 		} else {
-			goVersion = godeps.GoVersion
+			goVersion = godep.GoVersion
 		}
 	case "glide":
 		fallthrough
@@ -295,13 +298,13 @@ func (gc *GoCompiler) PackageName() (string, error) {
 	switch gc.VendorTool {
 	case "godep":
 		godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
-		var godeps godepsJSON
-		err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+		var godep godep
+		err := libbuildpack.NewJSON().Load(godepsJSONFile, &godep)
 		if err != nil {
 			gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
 			return "", err
 		}
-		mainPackageName = godeps.ImportPath
+		mainPackageName = godep.ImportPath
 
 	case "glide":
 		gc.Compiler.Command.SetDir(gc.Compiler.BuildDir)
@@ -467,13 +470,13 @@ func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
 			gc.Compiler.Log.Warning(packageSpecOverride(packages))
 		} else {
 			godepsJSONFile := filepath.Join(gc.mainPackagePath(), "Godeps", "Godeps.json")
-			var godeps godepsJSON
-			err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
+			var godep godep
+			err := libbuildpack.NewJSON().Load(godepsJSONFile, &godep)
 			if err != nil {
 				gc.Compiler.Log.Error("Bad Godeps/Godeps.json file")
 				return nil, err
 			}
-			packages = godeps.Packages
+			packages = godep.Packages
 		}
 
 		if len(packages) == 0 {
