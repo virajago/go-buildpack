@@ -558,6 +558,11 @@ var _ = Describe("Compile", func() {
 			err = ioutil.WriteFile(filepath.Join(buildDir, "vendor", "lib.go"), []byte("xx"), 0644)
 			Expect(err).To(BeNil())
 
+			err = ioutil.WriteFile(filepath.Join(buildDir, "Procfile"), []byte("xx"), 0644)
+			Expect(err).To(BeNil())
+
+			err = ioutil.WriteFile(filepath.Join(buildDir, ".profile"), []byte("xx"), 0644)
+			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
@@ -637,6 +642,22 @@ var _ = Describe("Compile", func() {
 				Expect(filepath.Join(packageDir, "main.go")).To(BeAnExistingFile())
 				Expect(filepath.Join(packageDir, "vendor", "lib.go")).To(BeAnExistingFile())
 				Expect(filepath.Join(packageDir, "src", "a/package/name")).NotTo(BeAnExistingFile())
+			})
+
+			It("does not move the Procfile", func() {
+				packageDir, err := gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(packageDir, "Procfile")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(buildDir, "Procfile")).To(BeAnExistingFile())
+			})
+
+			It("does not move the .profile script", func() {
+				packageDir, err := gc.SetupGoPath("a/package/name")
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(packageDir, ".profile")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(buildDir, ".profile")).To(BeAnExistingFile())
 			})
 
 			It("does not set GOBIN", func() {

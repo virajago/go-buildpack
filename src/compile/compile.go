@@ -386,6 +386,12 @@ func (gc *GoCompiler) SelectGoVersion(vendorTool string) (string, error) {
 	return gc.ParseGoVersion(goVersion)
 }
 
+var skipMoveFile = map[string]bool{
+	"Procfile": true,
+	".profile": true,
+	"src":      true,
+}
+
 func (gc *GoCompiler) SetupGoPath(mainPackageName string) (string, error) {
 	var goPath string
 	goPathInImage := os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true"
@@ -423,7 +429,7 @@ func (gc *GoCompiler) SetupGoPath(mainPackageName string) (string, error) {
 			return "", err
 		}
 		for _, f := range files {
-			if f.Name() != "src" {
+			if !skipMoveFile[f.Name()] {
 				src := filepath.Join(gc.Compiler.BuildDir, f.Name())
 				dest := filepath.Join(packageDir, f.Name())
 
