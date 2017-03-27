@@ -140,8 +140,7 @@ func (gc *GoCompiler) CreateStartupScripts(goVersion, mainPackageName string) er
 			return err
 		}
 
-		gorootContents := "export GOROOT=$HOME/.cloudfoundry/go\nPATH=$PATH:$GOROOT/bin"
-		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "goroot.sh", gorootContents)
+		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "goroot.sh", goRootScript())
 		if err != nil {
 			return err
 		}
@@ -154,15 +153,13 @@ func (gc *GoCompiler) CreateStartupScripts(goVersion, mainPackageName string) er
 			return err
 		}
 
-		zzGoPathContents := fmt.Sprintf("export GOPATH=$HOME\ncd $GOPATH/src/%s", mainPackageName)
-
-		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "zzgopath.sh", zzGoPathContents)
+		err = libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "zzgopath.sh", zzGoPathScript(mainPackageName))
 		if err != nil {
 			return err
 		}
 	}
 
-	return libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "go.sh", "PATH=$PATH:$HOME/bin")
+	return libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "go.sh", goScript())
 }
 
 func (gc *GoCompiler) goInstallLocation(goVersion string) string {
