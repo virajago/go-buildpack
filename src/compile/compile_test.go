@@ -34,7 +34,7 @@ var _ = Describe("Compile", func() {
 		vendorTool        string
 		goVersion         string
 		mainPackageName   string
-		mainPackagePath   string
+		goPath            string
 		packageList       []string
 		buildFlags        []string
 	)
@@ -71,7 +71,7 @@ var _ = Describe("Compile", func() {
 			VendorTool:      vendorTool,
 			GoVersion:       goVersion,
 			MainPackageName: mainPackageName,
-			MainPackagePath: mainPackagePath,
+			GoPath:          goPath,
 			PackageList:     packageList,
 			BuildFlags:      buildFlags,
 		}
@@ -615,20 +615,20 @@ var _ = Describe("Compile", func() {
 				Expect(dirRegex.Match([]byte(os.Getenv("GOPATH")))).To(BeTrue())
 			})
 
-			It("the package dir is <tempdir>/.go/src/<mainPackageName>", func() {
-				packageDir, err := gc.SetupGoPath()
+			It("it returns the gopath", func() {
+				path, err := gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				dirRegex := regexp.MustCompile(`\/.{3,}\/gobuildpack\.gopath[0-9]{8,}\/\.go\/src\/a\/package\/name`)
-				Expect(dirRegex.Match([]byte(packageDir))).To(BeTrue())
+				dirRegex := regexp.MustCompile(`\/.{3,}\/gobuildpack\.gopath[0-9]{8,}\/\.go`)
+				Expect(dirRegex.Match([]byte(path))).To(BeTrue())
 			})
 
 			It("copies the buildDir contents to <tempdir>/.go/src/<mainPackageName>", func() {
-				packageDir, err := gc.SetupGoPath()
+				path, err := gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(packageDir, "main.go")).To(BeAnExistingFile())
-				Expect(filepath.Join(packageDir, "vendor", "lib.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(path, "src", mainPackageName, "main.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(path, "src", mainPackageName, "vendor", "lib.go")).To(BeAnExistingFile())
 			})
 
 			It("sets GOBIN to <buildDir>/bin", func() {
@@ -651,35 +651,35 @@ var _ = Describe("Compile", func() {
 				Expect(os.Getenv("GOPATH")).To(Equal(buildDir))
 			})
 
-			It("the package directory is <buildDir>/src/<mainPackageName>", func() {
-				packageDir, err := gc.SetupGoPath()
+			It("returns the go path", func() {
+				path, err := gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(packageDir).To(Equal(filepath.Join(buildDir, "src", "a/package/name")))
+				Expect(path).To(Equal(buildDir))
 			})
 
 			It("moves the buildDir contents to <buildDir>/src/<mainPackageName>", func() {
-				packageDir, err := gc.SetupGoPath()
+				path, err := gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(packageDir, "main.go")).To(BeAnExistingFile())
-				Expect(filepath.Join(packageDir, "vendor", "lib.go")).To(BeAnExistingFile())
-				Expect(filepath.Join(packageDir, "src", "a/package/name")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(path, "src", mainPackageName, "main.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(path, "src", mainPackageName, "vendor", "lib.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(path, "src", mainPackageName, "src", "a/package/name")).NotTo(BeAnExistingFile())
 			})
 
 			It("does not move the Procfile", func() {
-				packageDir, err := gc.SetupGoPath()
+				path, err := gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(packageDir, "Procfile")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(path, "src", mainPackageName, "Procfile")).NotTo(BeAnExistingFile())
 				Expect(filepath.Join(buildDir, "Procfile")).To(BeAnExistingFile())
 			})
 
 			It("does not move the .profile script", func() {
-				packageDir, err := gc.SetupGoPath()
+				path, err := gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(packageDir, ".profile")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(path, "src", mainPackageName, ".profile")).NotTo(BeAnExistingFile())
 				Expect(filepath.Join(buildDir, ".profile")).To(BeAnExistingFile())
 			})
 
@@ -776,22 +776,22 @@ var _ = Describe("Compile", func() {
 	})
 
 	Describe("PackagesToInstall", func() {
-		var tempDir string
+		var mainPackagePath string
 
 		BeforeEach(func() {
 			mainPackageName = "a/package/name"
-			tempDir, err = ioutil.TempDir("", "go-buildpack.package")
+			goPath, err = ioutil.TempDir("", "go-buildpack.package")
 			Expect(err).To(BeNil())
 
-			mainPackagePath = filepath.Join(tempDir, mainPackageName)
-			err = os.MkdirAll(mainPackageName, 0755)
+			mainPackagePath = filepath.Join(goPath, "src", mainPackageName)
+			err = os.MkdirAll(mainPackagePath, 0755)
 			Expect(err).To(BeNil())
 
 			goVersion = "1.8.3"
 		})
 
 		AfterEach(func() {
-			err = os.RemoveAll(tempDir)
+			err = os.RemoveAll(goPath)
 			Expect(err).To(BeNil())
 		})
 
@@ -1170,15 +1170,23 @@ var _ = Describe("Compile", func() {
 		})
 	})
 	Describe("CompileApp", func() {
+		var mainPackagePath string
+
 		BeforeEach(func() {
+			mainPackageName = "first"
 			packageList = []string{"first", "second"}
 			buildFlags = []string{"-a=1", "-b=2"}
-			mainPackagePath, err = ioutil.TempDir("", "go-buildpack.package")
+
+			goPath, err = ioutil.TempDir("", "go-buildpack.gopath")
+			Expect(err).To(BeNil())
+
+			mainPackagePath = filepath.Join(goPath, "src", "first")
+			err = os.MkdirAll(mainPackagePath, 0755)
 			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
-			err = os.RemoveAll(mainPackagePath)
+			err = os.RemoveAll(goPath)
 			Expect(err).To(BeNil())
 		})
 
@@ -1321,6 +1329,7 @@ var _ = Describe("Compile", func() {
 		BeforeEach(func() {
 			goVersion = "3.4.5"
 			mainPackageName = "a-go-app"
+			goPath = buildDir
 
 			goDir := filepath.Join(cacheDir, "go"+goVersion, "go")
 			err = os.MkdirAll(goDir, 0755)

@@ -16,7 +16,7 @@ type GoCompiler struct {
 	VendorTool      string
 	GoVersion       string
 	MainPackageName string
-	MainPackagePath string
+	GoPath          string
 	PackageList     []string
 	BuildFlags      []string
 }
@@ -90,7 +90,7 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	gc.MainPackagePath, err = gc.SetupGoPath()
+	gc.GoPath, err = gc.SetupGoPath()
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to setup Go path: %s", err.Error())
 		return err
@@ -124,6 +124,10 @@ func (gc *GoCompiler) Compile() error {
 	return nil
 }
 
+func (gc *GoCompiler) MainPackagePath() string {
+	return filepath.Join(gc.GoPath, "src", gc.MainPackageName)
+}
+
 func (gc *GoCompiler) CreateStartupScripts() error {
 	var err error
 
@@ -148,7 +152,7 @@ func (gc *GoCompiler) CreateStartupScripts() error {
 
 	if os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true" {
 		gc.Compiler.Log.BeginStep("Cleaning up $GOPATH/pkg")
-		err = os.RemoveAll(filepath.Join(gc.Compiler.BuildDir, "pkg"))
+		err = os.RemoveAll(filepath.Join(gc.GoPath, "pkg"))
 		if err != nil {
 			return err
 		}
@@ -173,12 +177,12 @@ func (gc *GoCompiler) CompileApp() error {
 	args = append(args, gc.PackageList...)
 
 	if gc.VendorTool == "godep" {
-		vendorExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath, "vendor"))
+		vendorExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "vendor"))
 		if err != nil {
 			return err
 		}
 
-		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath, "Godeps", "_workspace", "src"))
+		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "Godeps", "_workspace", "src"))
 		if err != nil {
 			return err
 		}
@@ -196,7 +200,7 @@ func (gc *GoCompiler) CompileApp() error {
 
 	gc.Compiler.Log.BeginStep(fmt.Sprintf("Running: %s %s", cmd, strings.Join(args, " ")))
 
-	gc.Compiler.Command.SetDir(gc.MainPackagePath)
+	gc.Compiler.Command.SetDir(gc.MainPackagePath())
 	defer gc.Compiler.Command.SetDir("")
 
 	err := gc.Compiler.Command.Run(cmd, args...)
@@ -209,7 +213,7 @@ func (gc *GoCompiler) CompileApp() error {
 func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
 	var packages []string
 	useVendorDir := true
-	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath, "vendor"))
+	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "vendor"))
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +231,7 @@ func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
 			}
 		}
 
-		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath, "Godeps", "_workspace", "src"))
+		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "Godeps", "_workspace", "src"))
 		if err != nil {
 			return nil, err
 		}
@@ -243,7 +247,7 @@ func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
 			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
 			gc.Compiler.Log.Warning(packageSpecOverride(packages))
 		} else {
-			godepsJSONFile := filepath.Join(gc.MainPackagePath, "Godeps", "Godeps.json")
+			godepsJSONFile := filepath.Join(gc.MainPackagePath(), "Godeps", "Godeps.json")
 			var godeps godepsJSON
 			err := libbuildpack.NewJSON().Load(godepsJSONFile, &godeps)
 			if err != nil {
@@ -273,7 +277,7 @@ func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
 
 		if vendorDirExists {
 			numSubDirs := 0
-			files, err := ioutil.ReadDir(filepath.Join(gc.MainPackagePath, "vendor"))
+			files, err := ioutil.ReadDir(filepath.Join(gc.MainPackagePath(), "vendor"))
 			if err != nil {
 				return nil, err
 			}
@@ -290,7 +294,7 @@ func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
 
 		if runGlideInstall {
 			gc.Compiler.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
-			gc.Compiler.Command.SetDir(gc.MainPackagePath)
+			gc.Compiler.Command.SetDir(gc.MainPackagePath())
 			defer gc.Compiler.Command.SetDir("")
 
 			err := gc.Compiler.Command.Run("glide", "install")
@@ -327,7 +331,7 @@ func (gc *GoCompiler) updatePackagesForVendor(packages []string) []string {
 	var newPackages []string
 
 	for _, pkg := range packages {
-		vendored, _ := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath, "vendor", pkg))
+		vendored, _ := libbuildpack.FileExists(filepath.Join(gc.MainPackagePath(), "vendor", pkg))
 		if pkg == "." || !vendored {
 			newPackages = append(newPackages, pkg)
 		} else {
@@ -486,7 +490,7 @@ func (gc *GoCompiler) SetupGoPath() (string, error) {
 		return "", err
 	}
 
-	return packageDir, nil
+	return goPath, nil
 }
 
 func (gc *GoCompiler) SetupBuildFlags() []string {
