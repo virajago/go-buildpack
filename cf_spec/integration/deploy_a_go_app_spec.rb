@@ -67,7 +67,6 @@ describe 'CF Go Buildpack' do
 
     context 'app has vendored dependencies and no Godeps folder' do
       let(:app_name) { 'native_vendoring/src/go_app' }
-      let(:deploy_options) { { env: {'BP_DEBUG' => '1'} } }
 
       it 'successfully stages' do
         expect(app).to be_running
@@ -78,15 +77,10 @@ describe 'CF Go Buildpack' do
 
         expect(app).not_to have_internet_traffic
       end
-
-      it 'uses default_versions_for to pick the Go version' do
-        expect(app).to have_logged('DEBUG: default_version_for go is')
-      end
     end
 
     context 'app has vendored dependencies and custom package spec' do
       let(:app_name) { 'vendored_custom_install_spec/src/go_app' }
-      let(:deploy_options) { { env: {'BP_DEBUG' => '1'} } }
 
       it 'successfully stages' do
         expect(app).to be_running

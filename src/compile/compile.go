@@ -97,7 +97,7 @@ func (gc *GoCompiler) Compile() error {
 	}
 
 	buildFlags := gc.SetupBuildFlags(goVersion)
-	packages, err := gc.InstallPackages(mainPackageName, packageDir, goVersion, vendorTool)
+	packages, err := gc.PackagesToInstall(mainPackageName, packageDir, goVersion, vendorTool)
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to determine packages to install: %s", err.Error())
 		return err
@@ -222,7 +222,7 @@ func (gc *GoCompiler) CompileApp(packages, flags []string, packageDir, vendorToo
 	return nil
 }
 
-func (gc *GoCompiler) InstallPackages(mainPackageName, packageDir, goVersion, vendorTool string) ([]string, error) {
+func (gc *GoCompiler) PackagesToInstall(mainPackageName, packageDir, goVersion, vendorTool string) ([]string, error) {
 
 	var packages []string
 	useVendorDir := true
@@ -505,7 +505,9 @@ func (gc *GoCompiler) SetupBuildFlags(goVersion string) []string {
 	flags := []string{"-tags", "cloudfoundry", "-buildmode", "pie"}
 
 	if os.Getenv("GO_LINKER_SYMBOL") != "" && os.Getenv("GO_LINKER_VALUE") != "" {
-		flags = append(flags, fmt.Sprintf("-ldflags \"-X %s=%s\"", os.Getenv("GO_LINKER_SYMBOL"), os.Getenv("GO_LINKER_VALUE")))
+		ld_flags := []string{"-ldflags", fmt.Sprintf("-X %s=%s", os.Getenv("GO_LINKER_SYMBOL"), os.Getenv("GO_LINKER_VALUE"))}
+
+		flags = append(flags, ld_flags...)
 	}
 
 	return flags
