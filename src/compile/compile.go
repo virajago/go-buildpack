@@ -253,7 +253,7 @@ func (gc *GoCompiler) InstallGo() error {
 	if goInstalled {
 		gc.Compiler.Log.BeginStep("Using go %s", gc.GoVersion)
 	} else {
-		err = gc.clearCache()
+		err = gc.Compiler.ClearCache()
 		if err != nil {
 			return fmt.Errorf("clearing cache: %s", err.Error())
 		}
@@ -629,22 +629,6 @@ func (gc *GoCompiler) updatePackagesForVendor(packages []string) []string {
 	}
 
 	return newPackages
-}
-
-func (gc *GoCompiler) clearCache() error {
-	files, err := ioutil.ReadDir(gc.Compiler.CacheDir)
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		err = os.RemoveAll(filepath.Join(gc.Compiler.CacheDir, file.Name()))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (gc *GoCompiler) isGB() (bool, error) {
