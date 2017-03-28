@@ -37,6 +37,7 @@ var _ = Describe("Compile", func() {
 		goPath            string
 		packageList       []string
 		buildFlags        []string
+		godep             c.Godep
 	)
 
 	BeforeEach(func() {
@@ -74,6 +75,7 @@ var _ = Describe("Compile", func() {
 			GoPath:          goPath,
 			PackageList:     packageList,
 			BuildFlags:      buildFlags,
+			Godep:           godep,
 		}
 	})
 
@@ -87,22 +89,66 @@ var _ = Describe("Compile", func() {
 
 	Describe("SelectVendorTool", func() {
 		Context("There is a Godeps.json", func() {
-			var godepsJson string
+			var (
+				godepsJson         string
+				godepsJsonContents string
+			)
 
 			JustBeforeEach(func() {
 				err = os.MkdirAll(filepath.Join(buildDir, "Godeps"), 0755)
 				Expect(err).To(BeNil())
 
 				godepsJson = filepath.Join(buildDir, "Godeps", "Godeps.json")
-				err = ioutil.WriteFile(godepsJson, []byte("xxx"), 0644)
+				err = ioutil.WriteFile(godepsJson, []byte(godepsJsonContents), 0644)
 				Expect(err).To(BeNil())
 			})
 
-			It("returns godep", func() {
-				tool, err := gc.SelectVendorTool()
-				Expect(err).To(BeNil())
+			Context("the json is valid", func() {
+				BeforeEach(func() {
+					godepsJsonContents = `
+{
+	"ImportPath": "go-online",
+	"GoVersion": "go1.6",
+	"Deps": []
+}					
+`
+				})
+				It("returns godep", func() {
+					tool, err := gc.SelectVendorTool()
+					Expect(err).To(BeNil())
 
-				Expect(tool).To(Equal("godep"))
+					Expect(tool).To(Equal("godep"))
+				})
+				It("logs that it is checking the Godeps.json file", func() {
+					_, err := gc.SelectVendorTool()
+					Expect(err).To(BeNil())
+
+					Expect(buffer.String()).To(ContainSubstring("-----> Checking Godeps/Godeps.json file"))
+				})
+				It("stores the Godep info in the GoCompiler struct", func() {
+					_, err := gc.SelectVendorTool()
+					Expect(err).To(BeNil())
+
+					Expect(gc.Godep.ImportPath).To(Equal("go-online"))
+					Expect(gc.Godep.GoVersion).To(Equal("go1.6"))
+
+					var empty []string
+					Expect(gc.Godep.Packages).To(Equal(empty))
+				})
+
+			})
+
+			Context("bad Godeps.json file", func() {
+				BeforeEach(func() {
+					godepsJsonContents = "not actually JSON"
+				})
+
+				It("logs that the Godeps.json file is invalid and returns an error", func() {
+					_, err := gc.SelectVendorTool()
+					Expect(err).NotTo(BeNil())
+
+					Expect(buffer.String()).To(ContainSubstring("**ERROR** Bad Godeps/Godeps.json file"))
+				})
 			})
 		})
 
@@ -243,87 +289,43 @@ var _ = Describe("Compile", func() {
 			mockManifest.EXPECT().AllDependencyVersions("go").Return(versions)
 		})
 		Context("godep", func() {
-			var (
-				godepsJson         string
-				godepsJsonContents string
-			)
 			BeforeEach(func() {
 				vendorTool = "godep"
+				godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 			})
 
-			JustBeforeEach(func() {
-				err = os.MkdirAll(filepath.Join(buildDir, "Godeps"), 0755)
-				Expect(err).To(BeNil())
-
-				godepsJson = filepath.Join(buildDir, "Godeps", "Godeps.json")
-				err = ioutil.WriteFile(godepsJson, []byte(godepsJsonContents), 0644)
-				Expect(err).To(BeNil())
-			})
-
-			Context("it is valid json", func() {
-				BeforeEach(func() {
-					godepsJsonContents = `
-{
-	"ImportPath": "go-online",
-	"GoVersion": "go1.6",
-	"Deps": []
-}					
-`
-				})
-
-				It("logs that it found a Godeps.json file", func() {
-					_, err := gc.SelectGoVersion()
+			Context("GOVERSION not set", func() {
+				It("returns the go version from Godeps.json", func() {
+					goVersion, err := gc.SelectGoVersion()
 					Expect(err).To(BeNil())
 
-					Expect(buffer.String()).To(ContainSubstring("-----> Checking Godeps/Godeps.json file"))
-				})
-
-				Context("GOVERSION not set", func() {
-					It("returns the go version from Godeps.json", func() {
-						goVersion, err := gc.SelectGoVersion()
-						Expect(err).To(BeNil())
-
-						Expect(goVersion).To(Equal("1.6.4"))
-					})
-				})
-
-				Context("GOVERSION is set", func() {
-					var oldGOVERSION string
-
-					BeforeEach(func() {
-						oldGOVERSION = os.Getenv("GOVERSION")
-						err = os.Setenv("GOVERSION", "go34.34")
-						Expect(err).To(BeNil())
-					})
-
-					AfterEach(func() {
-						err = os.Setenv("GOVERSION", oldGOVERSION)
-						Expect(err).To(BeNil())
-					})
-
-					It("returns the go version from GOVERSION and logs a warning", func() {
-						goVersion, err := gc.SelectGoVersion()
-						Expect(err).To(BeNil())
-
-						Expect(goVersion).To(Equal("34.34.0"))
-						Expect(buffer.String()).To(ContainSubstring("**WARNING** Using $GOVERSION override.\n"))
-						Expect(buffer.String()).To(ContainSubstring("    $GOVERSION = go34.34\n"))
-						Expect(buffer.String()).To(ContainSubstring("If this isn't what you want please run:\n"))
-						Expect(buffer.String()).To(ContainSubstring("    cf unset-env <app> GOVERSION"))
-					})
+					Expect(goVersion).To(Equal("1.6.4"))
 				})
 			})
 
-			Context("bad Godeps.json file", func() {
+			Context("GOVERSION is set", func() {
+				var oldGOVERSION string
+
 				BeforeEach(func() {
-					godepsJsonContents = "not actually JSON"
+					oldGOVERSION = os.Getenv("GOVERSION")
+					err = os.Setenv("GOVERSION", "go34.34")
+					Expect(err).To(BeNil())
 				})
 
-				It("logs that the Godeps.json file is invalid and returns an error", func() {
-					_, err := gc.SelectGoVersion()
-					Expect(err).NotTo(BeNil())
+				AfterEach(func() {
+					err = os.Setenv("GOVERSION", oldGOVERSION)
+					Expect(err).To(BeNil())
+				})
 
-					Expect(buffer.String()).To(ContainSubstring("**ERROR** Bad Godeps/Godeps.json file"))
+				It("returns the go version from GOVERSION and logs a warning", func() {
+					goVersion, err := gc.SelectGoVersion()
+					Expect(err).To(BeNil())
+
+					Expect(goVersion).To(Equal("34.34.0"))
+					Expect(buffer.String()).To(ContainSubstring("**WARNING** Using $GOVERSION override.\n"))
+					Expect(buffer.String()).To(ContainSubstring("    $GOVERSION = go34.34\n"))
+					Expect(buffer.String()).To(ContainSubstring("If this isn't what you want please run:\n"))
+					Expect(buffer.String()).To(ContainSubstring("    cf unset-env <app> GOVERSION"))
 				})
 			})
 		})
@@ -712,19 +714,7 @@ var _ = Describe("Compile", func() {
 		Context("the vendor tool is godep", func() {
 			BeforeEach(func() {
 				vendorTool = "godep"
-				godepsJsonContents := `
-{
-	"ImportPath": "go-online",
-	"GoVersion": "go1.6",
-	"Deps": []
-}					
-`
-				err = os.MkdirAll(filepath.Join(buildDir, "Godeps"), 0755)
-				Expect(err).To(BeNil())
-
-				godepsJson := filepath.Join(buildDir, "Godeps", "Godeps.json")
-				err = ioutil.WriteFile(godepsJson, []byte(godepsJsonContents), 0644)
-				Expect(err).To(BeNil())
+				godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 			})
 
 			It("returns the package name from Godeps.json", func() {
@@ -812,19 +802,8 @@ var _ = Describe("Compile", func() {
 		})
 
 		Context("the vendor tool is godep", func() {
-			var godepsJsonContents string
 			BeforeEach(func() {
 				vendorTool = "godep"
-			})
-
-			JustBeforeEach(func() {
-				vendorTool = "godep"
-				err = os.MkdirAll(filepath.Join(mainPackagePath, "Godeps"), 0755)
-				Expect(err).To(BeNil())
-
-				godepsJson := filepath.Join(mainPackagePath, "Godeps", "Godeps.json")
-				err = ioutil.WriteFile(godepsJson, []byte(godepsJsonContents), 0644)
-				Expect(err).To(BeNil())
 			})
 
 			Context("GO_INSTALL_PACKAGE_SPEC is set", func() {
@@ -860,13 +839,7 @@ var _ = Describe("Compile", func() {
 
 			Context("No packages in Godeps.json", func() {
 				BeforeEach(func() {
-					godepsJsonContents = `
-{
-	"ImportPath": "go-online",
-	"GoVersion": "go1.6",
-	"Deps": []
-}					
-`
+					godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 				})
 
 				It("returns default", func() {
@@ -884,14 +857,7 @@ var _ = Describe("Compile", func() {
 
 			Context("GO_INSTALL_PACKAGE_SPEC is not set", func() {
 				BeforeEach(func() {
-					godepsJsonContents = `
-{
-	"ImportPath": "go-online",
-	"GoVersion": "go1.6",
-	"Deps": [],
-	"Packages": ["foo", "bar"]
-}					
-`
+					godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}}
 				})
 
 				Context("there is no vendor directory and no Godeps workspace", func() {
