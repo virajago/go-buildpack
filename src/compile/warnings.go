@@ -67,11 +67,3 @@ with go 1.6 this environment variable must unset or set to 1.`
 
 	return errorMessage
 }
-
-func godepAndVendorWarning() string {
-	errorMessage := `Godeps/_workspace/src and vendor/ exist
-code may not compile. Please convert all deps to vendor/`
-
-	return errorMessage
-
-}

@@ -894,6 +894,15 @@ var _ = Describe("Compile", func() {
 `
 				})
 
+				Context("there is no vendor directory and no Godeps workspace", func() {
+					It("logs a warning that ther is no vendor directory", func() {
+						_, err := gc.PackagesToInstall()
+						Expect(err).To(BeNil())
+
+						Expect(buffer.String()).To(ContainSubstring("**WARNING** vendor/ directory does not exist"))
+					})
+				})
+
 				Context("packages are vendored", func() {
 					BeforeEach(func() {
 						err = os.MkdirAll(filepath.Join(mainPackagePath, "vendor", "foo"), 0755)
@@ -1214,91 +1223,44 @@ var _ = Describe("Compile", func() {
 					Expect(err).To(BeNil())
 				})
 
-				Context("vendor dir exists", func() {
-					BeforeEach(func() {
-						err = os.MkdirAll(filepath.Join(mainPackagePath, "vendor"), 0755)
-						Expect(err).To(BeNil())
-					})
-					It("logs a warning that both a vendor dir + godeps workspace exist", func() {
-						gomock.InOrder(
-							mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-							mockCommandRunner.EXPECT().Run("godep", "go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
-							mockCommandRunner.EXPECT().SetDir(""),
-						)
+				It("logs and runs the install command it is going to run", func() {
+					gomock.InOrder(
+						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
+						mockCommandRunner.EXPECT().Run("godep", "go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
+						mockCommandRunner.EXPECT().SetDir(""),
+					)
 
-						err = gc.CompileApp()
-						Expect(err).To(BeNil())
+					err = gc.CompileApp()
+					Expect(err).To(BeNil())
 
-						Expect(buffer.String()).To(ContainSubstring("**WARNING** Godeps/_workspace/src and vendor/ exist"))
-						Expect(buffer.String()).To(ContainSubstring("code may not compile. Please convert all deps to vendor/"))
-					})
+					Expect(buffer.String()).To(ContainSubstring("-----> Running: godep go install -v -a=1 -b=2 first second"))
 				})
-
-				Context("vendor dir does not exist", func() {
-					BeforeEach(func() {
-						err = os.MkdirAll(filepath.Join(mainPackagePath, "vendor"), 0755)
-						Expect(err).To(BeNil())
-					})
-					It("logs and runs the install command it is going to run", func() {
-						gomock.InOrder(
-							mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-							mockCommandRunner.EXPECT().Run("godep", "go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
-							mockCommandRunner.EXPECT().SetDir(""),
-						)
-
-						err = gc.CompileApp()
-						Expect(err).To(BeNil())
-
-						Expect(buffer.String()).To(ContainSubstring("-----> Running: godep go install -v -a=1 -b=2 first second"))
-					})
-				})
-
 			})
+
 			Context("godeps workspace dir does not exist", func() {
-				Context("vendor dir exists", func() {
-					BeforeEach(func() {
-						err = os.MkdirAll(filepath.Join(mainPackagePath, "vendor"), 0755)
-						Expect(err).To(BeNil())
-					})
-					It("logs and runs the install command it is going to run", func() {
-						gomock.InOrder(
-							mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-							mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
-							mockCommandRunner.EXPECT().SetDir(""),
-						)
+				It("logs and runs the install command it is going to run", func() {
+					gomock.InOrder(
+						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
+						mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
+						mockCommandRunner.EXPECT().SetDir(""),
+					)
 
-						err = gc.CompileApp()
-						Expect(err).To(BeNil())
+					err = gc.CompileApp()
+					Expect(err).To(BeNil())
 
-						Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
-					})
+					Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
 				})
-				Context("vendor dir does not exist", func() {
-					It("logs and runs the install command it is going to run", func() {
-						gomock.InOrder(
-							mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-							mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
-							mockCommandRunner.EXPECT().SetDir(""),
-						)
+				It("logs and runs the install command it is going to run", func() {
+					gomock.InOrder(
+						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
+						mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
+						mockCommandRunner.EXPECT().SetDir(""),
+					)
 
-						err = gc.CompileApp()
-						Expect(err).To(BeNil())
+					err = gc.CompileApp()
+					Expect(err).To(BeNil())
 
-						Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
-					})
-
-					It("logs a warning that the vendor dir is missing", func() {
-						gomock.InOrder(
-							mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-							mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
-							mockCommandRunner.EXPECT().SetDir(""),
-						)
-
-						err = gc.CompileApp()
-						Expect(err).To(BeNil())
-
-						Expect(buffer.String()).To(ContainSubstring("**WARNING** vendor/ directory does not exist."))
-					})
+					Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
 				})
 			})
 		})

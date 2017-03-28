@@ -446,6 +446,10 @@ func (gc *GoCompiler) PackagesToInstall() ([]string, error) {
 			}
 		}
 
+		if useVendorDir && !vendorDirExists {
+			gc.Compiler.Log.Warning("vendor/ directory does not exist.")
+		}
+
 		if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
 			packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
 			gc.Compiler.Log.Warning(packageSpecOverride(packages))
@@ -537,11 +541,6 @@ func (gc *GoCompiler) CompileApp() error {
 	args = append(args, gc.PackageList...)
 
 	if gc.VendorTool == "godep" {
-		vendorExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "vendor"))
-		if err != nil {
-			return err
-		}
-
 		godepsWorkspaceExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "Godeps", "_workspace", "src"))
 		if err != nil {
 			return err
@@ -550,11 +549,6 @@ func (gc *GoCompiler) CompileApp() error {
 		if godepsWorkspaceExists {
 			args = append([]string{"go"}, args...)
 			cmd = "godep"
-			if vendorExists {
-				gc.Compiler.Log.Warning(godepAndVendorWarning())
-			}
-		} else if !vendorExists {
-			gc.Compiler.Log.Warning("vendor/ directory does not exist.")
 		}
 	}
 
