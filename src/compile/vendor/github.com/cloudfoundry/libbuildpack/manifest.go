@@ -6,7 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/Masterminds/semver"
 )
+
+const dateFormat = "2006-01-02"
+const thirtyDays = time.Hour * 24 * 30
 
 type Manifest interface {
 	DefaultVersion(depName string) (Dependency, error)
@@ -27,6 +33,12 @@ type Dependency struct {
 	Version string `yaml:"version"`
 }
 
+type DeprecationDate struct {
+	Name        string `yaml:"name"`
+	VersionLine string `yaml:"version_line"`
+	Date        string `yaml:"date"`
+}
+
 type ManifestEntry struct {
 	Dependency Dependency `yaml:",inline"`
 	URI        string     `yaml:"uri"`
@@ -35,10 +47,12 @@ type ManifestEntry struct {
 }
 
 type manifest struct {
-	LanguageString  string          `yaml:"language"`
-	DefaultVersions []Dependency    `yaml:"default_versions"`
-	ManifestEntries []ManifestEntry `yaml:"dependencies"`
-	ManifestRootDir string
+	LanguageString  string            `yaml:"language"`
+	DefaultVersions []Dependency      `yaml:"default_versions"`
+	ManifestEntries []ManifestEntry   `yaml:"dependencies"`
+	Deprecations    []DeprecationDate `yaml:"dependency_deprecation_dates"`
+	manifestRootDir string
+	currentTime     time.Time
 }
 
 type BuildpackMetadata struct {
@@ -46,7 +60,7 @@ type BuildpackMetadata struct {
 	Version  string `yaml:"version"`
 }
 
-func NewManifest(bpDir string) (Manifest, error) {
+func NewManifest(bpDir string, currentTime time.Time) (Manifest, error) {
 	var m manifest
 
 	err := NewYAML().Load(filepath.Join(bpDir, "manifest.yml"), &m)
@@ -54,16 +68,18 @@ func NewManifest(bpDir string) (Manifest, error) {
 		return nil, err
 	}
 
-	m.ManifestRootDir, err = filepath.Abs(bpDir)
+	m.manifestRootDir, err = filepath.Abs(bpDir)
 	if err != nil {
 		return nil, err
 	}
+
+	m.currentTime = currentTime
 
 	return &m, nil
 }
 
 func (m *manifest) RootDir() string {
-	return m.ManifestRootDir
+	return m.manifestRootDir
 }
 
 func (m *manifest) CheckBuildpackVersion(cacheDir string) {
@@ -112,7 +128,7 @@ func (m *manifest) Language() string {
 }
 
 func (m *manifest) Version() (string, error) {
-	version, err := ioutil.ReadFile(filepath.Join(m.ManifestRootDir, "VERSION"))
+	version, err := ioutil.ReadFile(filepath.Join(m.manifestRootDir, "VERSION"))
 	if err != nil {
 		return "", fmt.Errorf("unable to read VERSION file %s", err)
 	}
@@ -181,6 +197,16 @@ func (m *manifest) InstallDependency(dep Dependency, outputDir string) error {
 		return err
 	}
 
+	err = m.warnNewerPatch(dep)
+	if err != nil {
+		return err
+	}
+
+	err = m.warnEndOfLife(dep)
+	if err != nil {
+		return err
+	}
+
 	err = os.MkdirAll(outputDir, 0755)
 	if err != nil {
 		return err
@@ -191,6 +217,54 @@ func (m *manifest) InstallDependency(dep Dependency, outputDir string) error {
 	}
 
 	return ExtractTarGz(tmpFile, outputDir)
+}
+
+func (m *manifest) warnNewerPatch(dep Dependency) error {
+	versions := m.AllDependencyVersions(dep.Name)
+
+	v, err := semver.NewVersion(dep.Version)
+	if err != nil {
+		return err
+	}
+
+	constraint := fmt.Sprintf("%d.%d.x", v.Major(), v.Minor())
+	latest, err := FindMatchingVersion(constraint, versions)
+	if err != nil {
+		return err
+	}
+
+	if latest != dep.Version {
+		Log.Warning(outdatedDependencyWarning(dep, latest))
+	}
+
+	return nil
+}
+
+func (m *manifest) warnEndOfLife(dep Dependency) error {
+	v, err := semver.NewVersion(dep.Version)
+	if err != nil {
+		return err
+	}
+
+	for _, deprecation := range m.Deprecations {
+		if deprecation.Name != dep.Name {
+			continue
+		}
+
+		versionLine, err := semver.NewConstraint(deprecation.VersionLine)
+		if err != nil {
+			return err
+		}
+
+		eolTime, err := time.Parse(dateFormat, deprecation.Date)
+		if err != nil {
+			return err
+		}
+		if versionLine.Check(v) && eolTime.Sub(m.currentTime) < thirtyDays {
+			Log.Warning(endOfLifeWarning(dep.Name, deprecation.VersionLine, deprecation.Date))
+		}
+	}
+	return nil
 }
 
 func (m *manifest) FetchDependency(dep Dependency, outputFile string) error {
@@ -206,7 +280,7 @@ func (m *manifest) FetchDependency(dep Dependency, outputFile string) error {
 
 	if m.isCached() {
 		r := strings.NewReplacer("/", "_", ":", "_", "?", "_", "&", "_")
-		source := filepath.Join(m.ManifestRootDir, "dependencies", r.Replace(filteredURI))
+		source := filepath.Join(m.manifestRootDir, "dependencies", r.Replace(filteredURI))
 		Log.Info("Copy [%s]", source)
 		err = CopyFile(source, outputFile)
 	} else {
@@ -222,7 +296,6 @@ func (m *manifest) FetchDependency(dep Dependency, outputFile string) error {
 		os.Remove(outputFile)
 		return err
 	}
-	Log.Info("to [%s]", outputFile)
 
 	return nil
 }
@@ -264,7 +337,7 @@ func (m *manifest) getEntry(dep Dependency) (*ManifestEntry, error) {
 }
 
 func (m *manifest) isCached() bool {
-	dependenciesDir := filepath.Join(m.ManifestRootDir, "dependencies")
+	dependenciesDir := filepath.Join(m.manifestRootDir, "dependencies")
 
 	isCached, err := FileExists(dependenciesDir)
 	if err != nil {
