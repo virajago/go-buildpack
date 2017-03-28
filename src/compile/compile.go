@@ -60,7 +60,7 @@ func (gc *GoCompiler) Compile() error {
 		return err
 	}
 
-	err = gc.InstallVendorTool()
+	err = gc.InstallVendorTool("/tmp")
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to install %s: %s", gc.VendorTool, err.Error())
 		return err
@@ -164,26 +164,14 @@ func (gc *GoCompiler) SelectVendorTool() (vendorTool string, err error) {
 	return "go_nativevendoring", nil
 }
 
-func (gc *GoCompiler) InstallVendorTool() error {
+func (gc *GoCompiler) InstallVendorTool(tmpDir string) error {
 	if gc.VendorTool == "go_nativevendoring" {
 		return nil
 	}
 
-	gc.Compiler.Log.BeginStep("Installing %s", gc.VendorTool)
+	installDir := filepath.Join(tmpDir, gc.VendorTool)
 
-	tool, err := gc.Compiler.Manifest.DefaultVersion(gc.VendorTool)
-	if err != nil {
-		return err
-	}
-	gc.Compiler.Log.Info("%s version: %s", gc.VendorTool, tool.Version)
-
-	installDir := filepath.Join("/tmp", gc.VendorTool)
-	err = os.MkdirAll(installDir, 0755)
-	if err != nil {
-		return err
-	}
-
-	err = gc.Compiler.Manifest.InstallDependency(tool, installDir)
+	err := gc.Compiler.Manifest.InstallOnlyVersion(gc.VendorTool, installDir)
 	if err != nil {
 		return err
 	}
@@ -263,18 +251,11 @@ func (gc *GoCompiler) InstallGo() error {
 	}
 
 	if goInstalled {
-		gc.Compiler.Log.BeginStep("Using go%s", gc.GoVersion)
+		gc.Compiler.Log.BeginStep("Using go %s", gc.GoVersion)
 	} else {
-		gc.Compiler.Log.BeginStep("Installing go%s", gc.GoVersion)
-
 		err = gc.clearCache()
 		if err != nil {
 			return fmt.Errorf("clearing cache: %s", err.Error())
-		}
-
-		err = os.MkdirAll(goInstallDir, 0755)
-		if err != nil {
-			return err
 		}
 
 		dep := libbuildpack.Dependency{Name: "go", Version: gc.GoVersion}

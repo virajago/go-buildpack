@@ -194,23 +194,15 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("installs godep to the requested dir, adding it to the PATH", func() {
-				dep := libbuildpack.Dependency{Name: "godep", Version: "v1.2.3"}
-				installDir := filepath.Join("/tmp", "godep")
+				installDir := filepath.Join(tempDir, "godep")
 
-				mockManifest.EXPECT().DefaultVersion("godep").Return(dep, nil)
-				mockManifest.EXPECT().InstallDependency(dep, installDir).Return(nil)
+				mockManifest.EXPECT().InstallOnlyVersion("godep", installDir).Return(nil)
 
-				err = gc.InstallVendorTool()
+				err = gc.InstallVendorTool(tempDir)
 				Expect(err).To(BeNil())
-
-				Expect(installDir).To(BeADirectory())
 
 				newPath := os.Getenv("PATH")
 				Expect(newPath).To(Equal(fmt.Sprintf("%s:%s", filepath.Join(installDir, "bin"), oldPath)))
-
-				Expect(buffer.String()).To(ContainSubstring("-----> Installing godep"))
-				Expect(buffer.String()).To(ContainSubstring("       godep version: v1.2.3"))
-
 			})
 		})
 		Context("the tool is glide", func() {
@@ -219,23 +211,15 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("installs glide to the requested dir, adding it to the PATH", func() {
-				dep := libbuildpack.Dependency{Name: "glide", Version: "v5.6.7"}
-				installDir := filepath.Join("/tmp", "glide")
+				installDir := filepath.Join(tempDir, "glide")
 
-				mockManifest.EXPECT().DefaultVersion("glide").Return(dep, nil)
-				mockManifest.EXPECT().InstallDependency(dep, installDir).Return(nil)
+				mockManifest.EXPECT().InstallOnlyVersion("glide", installDir).Return(nil)
 
-				err = gc.InstallVendorTool()
+				err = gc.InstallVendorTool(tempDir)
 				Expect(err).To(BeNil())
-
-				Expect(installDir).To(BeADirectory())
 
 				newPath := os.Getenv("PATH")
 				Expect(newPath).To(Equal(fmt.Sprintf("%s:%s", filepath.Join(installDir, "bin"), oldPath)))
-
-				Expect(buffer.String()).To(ContainSubstring("-----> Installing glide"))
-				Expect(buffer.String()).To(ContainSubstring("       glide version: v5.6.7"))
-
 			})
 		})
 		Context("the tool is go_nativevendoring", func() {
@@ -244,17 +228,11 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("does not install anything", func() {
-
-				mockManifest.EXPECT().DefaultVersion(gomock.Any()).Times(0)
-				mockManifest.EXPECT().InstallDependency(gomock.Any(), gomock.Any()).Times(0)
-
-				err = gc.InstallVendorTool()
+				err = gc.InstallVendorTool(tempDir)
 				Expect(err).To(BeNil())
 
 				newPath := os.Getenv("PATH")
 				Expect(newPath).To(Equal(oldPath))
-
-				Expect(buffer.String()).To(Equal(""))
 			})
 		})
 	})
@@ -466,9 +444,7 @@ var _ = Describe("Compile", func() {
 			oldPath = os.Getenv("PATH")
 			oldPath = os.Getenv("GOROOT")
 			goInstallDir = filepath.Join(cacheDir, "go1.3.4")
-
 			dep = libbuildpack.Dependency{Name: "go", Version: "1.3.4"}
-			mockManifest.EXPECT().InstallDependency(dep, goInstallDir).Return(nil).Times(1)
 		})
 
 		AfterEach(func() {
@@ -479,31 +455,8 @@ var _ = Describe("Compile", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("Creates a bin directory", func() {
-			err = gc.InstallGo()
-			Expect(err).To(BeNil())
-
-			Expect(filepath.Join(buildDir, "bin")).To(BeADirectory())
-		})
-
-		It("Sets up GOROOT", func() {
-			err = gc.InstallGo()
-			Expect(err).To(BeNil())
-
-			Expect(os.Getenv("GOROOT")).To(Equal(filepath.Join(goInstallDir, "go")))
-		})
-
-		It("adds go to the PATH", func() {
-			err = gc.InstallGo()
-			Expect(err).To(BeNil())
-
-			newPath := fmt.Sprintf("%s:%s", oldPath, filepath.Join(goInstallDir, "go", "bin"))
-			Expect(os.Getenv("PATH")).To(Equal(newPath))
-		})
-
 		Context("go is already cached", func() {
 			BeforeEach(func() {
-				mockManifest.EXPECT().InstallDependency(dep, goInstallDir).Times(0)
 				err = os.MkdirAll(filepath.Join(goInstallDir, "go"), 0755)
 				Expect(err).To(BeNil())
 			})
@@ -512,7 +465,29 @@ var _ = Describe("Compile", func() {
 				err = gc.InstallGo()
 				Expect(err).To(BeNil())
 
-				Expect(buffer.String()).To(ContainSubstring("-----> Using go1.3.4"))
+				Expect(buffer.String()).To(ContainSubstring("-----> Using go 1.3.4"))
+			})
+
+			It("Creates a bin directory", func() {
+				err = gc.InstallGo()
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(buildDir, "bin")).To(BeADirectory())
+			})
+
+			It("Sets up GOROOT", func() {
+				err = gc.InstallGo()
+				Expect(err).To(BeNil())
+
+				Expect(os.Getenv("GOROOT")).To(Equal(filepath.Join(goInstallDir, "go")))
+			})
+
+			It("adds go to the PATH", func() {
+				err = gc.InstallGo()
+				Expect(err).To(BeNil())
+
+				newPath := fmt.Sprintf("%s:%s", oldPath, filepath.Join(goInstallDir, "go", "bin"))
+				Expect(os.Getenv("PATH")).To(Equal(newPath))
 			})
 		})
 
@@ -520,13 +495,34 @@ var _ = Describe("Compile", func() {
 			BeforeEach(func() {
 				err = os.MkdirAll(filepath.Join(cacheDir, "go4.3.2", "go"), 0755)
 				Expect(err).To(BeNil())
+				mockManifest.EXPECT().InstallDependency(dep, goInstallDir).Return(nil)
+			})
+
+			It("Creates a bin directory", func() {
+				err = gc.InstallGo()
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(buildDir, "bin")).To(BeADirectory())
+			})
+
+			It("Sets up GOROOT", func() {
+				err = gc.InstallGo()
+				Expect(err).To(BeNil())
+
+				Expect(os.Getenv("GOROOT")).To(Equal(filepath.Join(goInstallDir, "go")))
+			})
+
+			It("adds go to the PATH", func() {
+				err = gc.InstallGo()
+				Expect(err).To(BeNil())
+
+				newPath := fmt.Sprintf("%s:%s", oldPath, filepath.Join(goInstallDir, "go", "bin"))
+				Expect(os.Getenv("PATH")).To(Equal(newPath))
 			})
 
 			It("installs go", func() {
 				err = gc.InstallGo()
 				Expect(err).To(BeNil())
-
-				Expect(buffer.String()).To(ContainSubstring("-----> Installing go1.3.4"))
 			})
 
 			It("clears the cache", func() {
@@ -534,13 +530,6 @@ var _ = Describe("Compile", func() {
 				Expect(err).To(BeNil())
 
 				Expect(filepath.Join(cacheDir, "go4.3.2", "go")).NotTo(BeADirectory())
-			})
-
-			It("creates the install directory", func() {
-				err = gc.InstallGo()
-				Expect(err).To(BeNil())
-
-				Expect(filepath.Join(cacheDir, "go1.3.4")).To(BeADirectory())
 			})
 		})
 	})
