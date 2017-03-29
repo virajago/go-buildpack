@@ -422,40 +422,6 @@ var _ = Describe("Compile", func() {
 		})
 
 	})
-	Describe("CheckBinDirectory", func() {
-		Context("no directory exists", func() {
-			It("returns nil", func() {
-				err = gc.CheckBinDirectory()
-				Expect(err).To(BeNil())
-			})
-		})
-
-		Context("a bin directory exists", func() {
-			BeforeEach(func() {
-				err = os.MkdirAll(filepath.Join(buildDir, "bin"), 0755)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns nil", func() {
-				err := gc.CheckBinDirectory()
-				Expect(err).To(BeNil())
-			})
-		})
-
-		Context("a bin file exists", func() {
-			BeforeEach(func() {
-				err = ioutil.WriteFile(filepath.Join(buildDir, "bin"), []byte("xxx"), 0644)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns and logs an error", func() {
-				err := gc.CheckBinDirectory()
-				Expect(err).NotTo(BeNil())
-
-				Expect(buffer.String()).To(ContainSubstring("**ERROR** File bin exists and is not a directory."))
-			})
-		})
-	})
 
 	Describe("InstallGo", func() {
 		var (
@@ -560,43 +526,107 @@ var _ = Describe("Compile", func() {
 		})
 	})
 
-	Describe("SetBuildFlags", func() {
-		Context("link environment variables not set", func() {
-			It("contains the default flags", func() {
-				gc.SetBuildFlags()
-				Expect(gc.BuildFlags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie"}))
+	Describe("SetMainPackageName", func() {
+		Context("the vendor tool is godep", func() {
+			BeforeEach(func() {
+				vendorTool = "godep"
+				godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
+			})
+
+			It("sets the main package name from Godeps.json", func() {
+				err = gc.SetMainPackageName()
+				Expect(err).To(BeNil())
+
+				Expect(gc.MainPackageName).To(Equal("go-online"))
 			})
 		})
 
-		Context("link environment variables are set set", func() {
-			var (
-				oldGoLinkerSymbol string
-				oldGoLinkerValue  string
-			)
-
+		Context("the vendor tool is glide", func() {
 			BeforeEach(func() {
-				oldGoLinkerSymbol = os.Getenv("GO_LINKER_SYMBOL")
-				oldGoLinkerValue = os.Getenv("GO_LINKER_VALUE")
+				vendorTool = "glide"
+			})
+			It("sets the main package name to the value of 'glide name'", func() {
+				gomock.InOrder(
+					mockCommandRunner.EXPECT().SetDir(buildDir),
+					mockCommandRunner.EXPECT().CaptureStdout("glide", "name").Return("go-package-name\n", nil),
+					mockCommandRunner.EXPECT().SetDir(""),
+				)
 
-				err = os.Setenv("GO_LINKER_SYMBOL", "package.main.thing")
+				err = gc.SetMainPackageName()
 				Expect(err).To(BeNil())
+				Expect(gc.MainPackageName).To(Equal("go-package-name"))
+			})
+		})
 
-				err = os.Setenv("GO_LINKER_VALUE", "some_string")
-				Expect(err).To(BeNil())
-
+		Context("the vendor tool is go_nativevendoring", func() {
+			BeforeEach(func() {
+				vendorTool = "go_nativevendoring"
 			})
 
-			AfterEach(func() {
-				err = os.Setenv("GO_LINKER_SYMBOL", oldGoLinkerSymbol)
-				Expect(err).To(BeNil())
+			Context("GOPACKAGENAME is not set", func() {
+				It("logs an error", func() {
+					err = gc.SetMainPackageName()
+					Expect(err).NotTo(BeNil())
 
-				err = os.Setenv("GO_LINKER_VALUE", oldGoLinkerValue)
+					Expect(buffer.String()).To(ContainSubstring("**ERROR** To use go native vendoring set the $GOPACKAGENAME"))
+					Expect(buffer.String()).To(ContainSubstring("environment variable to your app's package name"))
+				})
+			})
+			Context("GOPACKAGENAME is set", func() {
+				var oldGOPACKAGENAME string
+
+				BeforeEach(func() {
+					oldGOPACKAGENAME = os.Getenv("GOPACKAGENAME")
+					err = os.Setenv("GOPACKAGENAME", "my-go-app")
+					Expect(err).To(BeNil())
+				})
+
+				AfterEach(func() {
+					err = os.Setenv("GOPACKAGENAME", oldGOPACKAGENAME)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns the package name from GOPACKAGENAME", func() {
+					err = gc.SetMainPackageName()
+					Expect(err).To(BeNil())
+
+					Expect(gc.MainPackageName).To(Equal("my-go-app"))
+				})
+			})
+		})
+	})
+
+	Describe("CheckBinDirectory", func() {
+		Context("no directory exists", func() {
+			It("returns nil", func() {
+				err = gc.CheckBinDirectory()
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("a bin directory exists", func() {
+			BeforeEach(func() {
+				err = os.MkdirAll(filepath.Join(buildDir, "bin"), 0755)
 				Expect(err).To(BeNil())
 			})
 
-			It("contains the ldflags argument", func() {
-				gc.SetBuildFlags()
-				Expect(gc.BuildFlags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie", "-ldflags", "-X package.main.thing=some_string"}))
+			It("returns nil", func() {
+				err := gc.CheckBinDirectory()
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("a bin file exists", func() {
+			BeforeEach(func() {
+				err = ioutil.WriteFile(filepath.Join(buildDir, "bin"), []byte("xxx"), 0644)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns and logs an error", func() {
+				err := gc.CheckBinDirectory()
+				Expect(err).NotTo(BeNil())
+
+				Expect(buffer.String()).To(ContainSubstring("**ERROR** File bin exists and is not a directory."))
 			})
 		})
 	})
@@ -734,72 +764,173 @@ var _ = Describe("Compile", func() {
 		})
 	})
 
-	Describe("SetMainPackageName", func() {
-		Context("the vendor tool is godep", func() {
+	Describe("HandleVendorExperiment", func() {
+		Context("version is go1.6", func() {
+			var (
+				oldGO15VENDOREXPERIMENT string
+				newGO15VENDOREXPERIMENT string
+			)
+
 			BeforeEach(func() {
-				vendorTool = "godep"
-				godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
+				goVersion = "1.6.3"
 			})
 
-			It("sets the main package name from Godeps.json", func() {
-				err = gc.SetMainPackageName()
+			JustBeforeEach(func() {
+				oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
+				err = os.Setenv("GO15VENDOREXPERIMENT", newGO15VENDOREXPERIMENT)
 				Expect(err).To(BeNil())
-
-				Expect(gc.MainPackageName).To(Equal("go-online"))
 			})
-		})
 
-		Context("the vendor tool is glide", func() {
-			BeforeEach(func() {
-				vendorTool = "glide"
-			})
-			It("sets the main package name to the value of 'glide name'", func() {
-				gomock.InOrder(
-					mockCommandRunner.EXPECT().SetDir(buildDir),
-					mockCommandRunner.EXPECT().CaptureStdout("glide", "name").Return("go-package-name\n", nil),
-					mockCommandRunner.EXPECT().SetDir(""),
-				)
-
-				err = gc.SetMainPackageName()
+			AfterEach(func() {
+				err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
 				Expect(err).To(BeNil())
-				Expect(gc.MainPackageName).To(Equal("go-package-name"))
-			})
-		})
-
-		Context("the vendor tool is go_nativevendoring", func() {
-			BeforeEach(func() {
-				vendorTool = "go_nativevendoring"
 			})
 
-			Context("GOPACKAGENAME is not set", func() {
-				It("logs an error", func() {
-					err = gc.SetMainPackageName()
-					Expect(err).NotTo(BeNil())
+			Context("GO15VENDOREXPERIMENT is 0", func() {
+				BeforeEach(func() {
+					newGO15VENDOREXPERIMENT = "0"
+				})
 
-					Expect(buffer.String()).To(ContainSubstring("**ERROR** To use go native vendoring set the $GOPACKAGENAME"))
-					Expect(buffer.String()).To(ContainSubstring("environment variable to your app's package name"))
+				It("sets VendorExperiment to false", func() {
+					err = gc.HandleVendorExperiment()
+					Expect(err).To(BeNil())
+					Expect(gc.VendorExperiment).To(BeFalse())
 				})
 			})
-			Context("GOPACKAGENAME is set", func() {
-				var oldGOPACKAGENAME string
+			Context("GO15VENDOREXPERIMENT is not 0", func() {
+				BeforeEach(func() {
+					newGO15VENDOREXPERIMENT = "1"
+				})
+
+				It("sets VendorExperiment to true", func() {
+					err = gc.HandleVendorExperiment()
+					Expect(err).To(BeNil())
+					Expect(gc.VendorExperiment).To(BeTrue())
+				})
+			})
+		})
+
+		Context("version is not go1.6", func() {
+			BeforeEach(func() {
+				goVersion = "1.7.3"
+			})
+
+			Context("GO15VENDOREXPERIMENT is set", func() {
+				var oldGO15VENDOREXPERIMENT string
 
 				BeforeEach(func() {
-					oldGOPACKAGENAME = os.Getenv("GOPACKAGENAME")
-					err = os.Setenv("GOPACKAGENAME", "my-go-app")
+					oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
+					err = os.Setenv("GO15VENDOREXPERIMENT", "foo")
 					Expect(err).To(BeNil())
 				})
 
 				AfterEach(func() {
-					err = os.Setenv("GOPACKAGENAME", oldGOPACKAGENAME)
+					err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
 					Expect(err).To(BeNil())
 				})
 
-				It("returns the package name from GOPACKAGENAME", func() {
-					err = gc.SetMainPackageName()
-					Expect(err).To(BeNil())
+				It("returns an error and logs a message", func() {
+					err = gc.HandleVendorExperiment()
+					Expect(err).NotTo(BeNil())
 
-					Expect(gc.MainPackageName).To(Equal("my-go-app"))
+					Expect(buffer.String()).To(ContainSubstring("**ERROR** GO15VENDOREXPERIMENT is set, but is not supported by go1.7 and later"))
+					Expect(buffer.String()).To(ContainSubstring("Run 'cf unset-env <app> GO15VENDOREXPERIMENT' before pushing again"))
 				})
+
+			})
+			Context("GO15VENDOREXPERIMENT is not set", func() {
+				It("sets VendorExperiment to true", func() {
+					err = gc.HandleVendorExperiment()
+					Expect(err).To(BeNil())
+					Expect(gc.VendorExperiment).To(BeTrue())
+				})
+			})
+		})
+	})
+
+	Describe("RunGlideInstall", func() {
+		var mainPackagePath string
+
+		BeforeEach(func() {
+			mainPackageName = "a/package/name"
+			goPath, err = ioutil.TempDir("", "go-buildpack.package")
+			Expect(err).To(BeNil())
+
+			mainPackagePath = filepath.Join(goPath, "src", mainPackageName)
+			err = os.MkdirAll(mainPackagePath, 0755)
+			Expect(err).To(BeNil())
+
+			vendorTool = "glide"
+		})
+
+		AfterEach(func() {
+			err = os.RemoveAll(goPath)
+			Expect(err).To(BeNil())
+		})
+
+		Context("packages are not already vendored", func() {
+			It("uses glide to install the packages", func() {
+				gomock.InOrder(
+					mockCommandRunner.EXPECT().SetDir(mainPackagePath),
+					mockCommandRunner.EXPECT().Run("glide", "install").Return(nil),
+					mockCommandRunner.EXPECT().SetDir(""),
+				)
+
+				err = gc.RunGlideInstall()
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("packages are already vendored", func() {
+			BeforeEach(func() {
+				err = os.MkdirAll(filepath.Join(mainPackagePath, "vendor", "another-package"), 0755)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not use glide to install the packages", func() {
+				err = gc.RunGlideInstall()
+				Expect(err).To(BeNil())
+			})
+		})
+	})
+
+	Describe("SetBuildFlags", func() {
+		Context("link environment variables not set", func() {
+			It("contains the default flags", func() {
+				gc.SetBuildFlags()
+				Expect(gc.BuildFlags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie"}))
+			})
+		})
+
+		Context("link environment variables are set set", func() {
+			var (
+				oldGoLinkerSymbol string
+				oldGoLinkerValue  string
+			)
+
+			BeforeEach(func() {
+				oldGoLinkerSymbol = os.Getenv("GO_LINKER_SYMBOL")
+				oldGoLinkerValue = os.Getenv("GO_LINKER_VALUE")
+
+				err = os.Setenv("GO_LINKER_SYMBOL", "package.main.thing")
+				Expect(err).To(BeNil())
+
+				err = os.Setenv("GO_LINKER_VALUE", "some_string")
+				Expect(err).To(BeNil())
+
+			})
+
+			AfterEach(func() {
+				err = os.Setenv("GO_LINKER_SYMBOL", oldGoLinkerSymbol)
+				Expect(err).To(BeNil())
+
+				err = os.Setenv("GO_LINKER_VALUE", oldGoLinkerValue)
+				Expect(err).To(BeNil())
+			})
+
+			It("contains the ldflags argument", func() {
+				gc.SetBuildFlags()
+				Expect(gc.BuildFlags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie", "-ldflags", "-X package.main.thing=some_string"}))
 			})
 		})
 	})
@@ -1087,6 +1218,7 @@ var _ = Describe("Compile", func() {
 			})
 		})
 	})
+
 	Describe("CompileApp", func() {
 		var mainPackagePath string
 
@@ -1330,133 +1462,4 @@ default_process_types:
 		})
 	})
 
-	Describe("HandleVendorExperiment", func() {
-		Context("version is go1.6", func() {
-			var (
-				oldGO15VENDOREXPERIMENT string
-				newGO15VENDOREXPERIMENT string
-			)
-
-			BeforeEach(func() {
-				goVersion = "1.6.3"
-			})
-
-			JustBeforeEach(func() {
-				oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
-				err = os.Setenv("GO15VENDOREXPERIMENT", newGO15VENDOREXPERIMENT)
-				Expect(err).To(BeNil())
-			})
-
-			AfterEach(func() {
-				err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
-				Expect(err).To(BeNil())
-			})
-
-			Context("GO15VENDOREXPERIMENT is 0", func() {
-				BeforeEach(func() {
-					newGO15VENDOREXPERIMENT = "0"
-				})
-
-				It("sets VendorExperiment to false", func() {
-					err = gc.HandleVendorExperiment()
-					Expect(err).To(BeNil())
-					Expect(gc.VendorExperiment).To(BeFalse())
-				})
-			})
-			Context("GO15VENDOREXPERIMENT is not 0", func() {
-				BeforeEach(func() {
-					newGO15VENDOREXPERIMENT = "1"
-				})
-
-				It("sets VendorExperiment to true", func() {
-					err = gc.HandleVendorExperiment()
-					Expect(err).To(BeNil())
-					Expect(gc.VendorExperiment).To(BeTrue())
-				})
-			})
-		})
-
-		Context("version is not go1.6", func() {
-			BeforeEach(func() {
-				goVersion = "1.7.3"
-			})
-
-			Context("GO15VENDOREXPERIMENT is set", func() {
-				var oldGO15VENDOREXPERIMENT string
-
-				BeforeEach(func() {
-					oldGO15VENDOREXPERIMENT = os.Getenv("GO15VENDOREXPERIMENT")
-					err = os.Setenv("GO15VENDOREXPERIMENT", "foo")
-					Expect(err).To(BeNil())
-				})
-
-				AfterEach(func() {
-					err = os.Setenv("GO15VENDOREXPERIMENT", oldGO15VENDOREXPERIMENT)
-					Expect(err).To(BeNil())
-				})
-
-				It("returns an error and logs a message", func() {
-					err = gc.HandleVendorExperiment()
-					Expect(err).NotTo(BeNil())
-
-					Expect(buffer.String()).To(ContainSubstring("**ERROR** GO15VENDOREXPERIMENT is set, but is not supported by go1.7 and later"))
-					Expect(buffer.String()).To(ContainSubstring("Run 'cf unset-env <app> GO15VENDOREXPERIMENT' before pushing again"))
-				})
-
-			})
-			Context("GO15VENDOREXPERIMENT is not set", func() {
-				It("sets VendorExperiment to true", func() {
-					err = gc.HandleVendorExperiment()
-					Expect(err).To(BeNil())
-					Expect(gc.VendorExperiment).To(BeTrue())
-				})
-			})
-		})
-	})
-
-	Describe("RunGlideInstall", func() {
-		var mainPackagePath string
-
-		BeforeEach(func() {
-			mainPackageName = "a/package/name"
-			goPath, err = ioutil.TempDir("", "go-buildpack.package")
-			Expect(err).To(BeNil())
-
-			mainPackagePath = filepath.Join(goPath, "src", mainPackageName)
-			err = os.MkdirAll(mainPackagePath, 0755)
-			Expect(err).To(BeNil())
-
-			vendorTool = "glide"
-		})
-
-		AfterEach(func() {
-			err = os.RemoveAll(goPath)
-			Expect(err).To(BeNil())
-		})
-
-		Context("packages are not already vendored", func() {
-			It("uses glide to install the packages", func() {
-				gomock.InOrder(
-					mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-					mockCommandRunner.EXPECT().Run("glide", "install").Return(nil),
-					mockCommandRunner.EXPECT().SetDir(""),
-				)
-
-				err = gc.RunGlideInstall()
-				Expect(err).To(BeNil())
-			})
-		})
-
-		Context("packages are already vendored", func() {
-			BeforeEach(func() {
-				err = os.MkdirAll(filepath.Join(mainPackagePath, "vendor", "another-package"), 0755)
-				Expect(err).To(BeNil())
-			})
-
-			It("does not use glide to install the packages", func() {
-				err = gc.RunGlideInstall()
-				Expect(err).To(BeNil())
-			})
-		})
-	})
 })
