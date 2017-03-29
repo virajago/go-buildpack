@@ -65,6 +65,13 @@ func compile(gc *golang.Compiler) error {
 		return err
 	}
 
+	if gc.VendorTool == "glide" {
+		if err := gc.RunGlideInstall(); err != nil {
+			gc.Compiler.Log.Error("Error running 'glide install': %s", err.Error())
+			return err
+		}
+	}
+
 	gc.SetBuildFlags()
 	if err = gc.SetInstallPackages(); err != nil {
 		gc.Compiler.Log.Error("Unable to determine packages to install: %s", err.Error())

@@ -315,6 +315,50 @@ func (gc *Compiler) SetBuildFlags() {
 	return
 }
 
+func (gc *Compiler) RunGlideInstall() error {
+	if gc.VendorTool != "glide" {
+		return nil
+	}
+
+	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "vendor"))
+	if err != nil {
+		return err
+	}
+	runGlideInstall := true
+
+	if vendorDirExists {
+		numSubDirs := 0
+		files, err := ioutil.ReadDir(filepath.Join(gc.mainPackagePath(), "vendor"))
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			if file.IsDir() {
+				numSubDirs++
+			}
+		}
+
+		if numSubDirs > 0 {
+			runGlideInstall = false
+		}
+	}
+
+	if runGlideInstall {
+		gc.Compiler.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
+		gc.Compiler.Command.SetDir(gc.mainPackagePath())
+		defer gc.Compiler.Command.SetDir("")
+
+		err := gc.Compiler.Command.Run("glide", "install")
+		if err != nil {
+			return err
+		}
+	} else {
+		gc.Compiler.Log.Info("Note: skipping (glide install) due to non-empty vendor directory.")
+	}
+
+	return nil
+}
+
 func (gc *Compiler) SetInstallPackages() error {
 	var packages []string
 	useVendorDir := true
@@ -366,38 +410,6 @@ func (gc *Compiler) SetInstallPackages() error {
 			packages = gc.updatePackagesForVendor(packages)
 		}
 	case "glide":
-		runGlideInstall := true
-
-		if vendorDirExists {
-			numSubDirs := 0
-			files, err := ioutil.ReadDir(filepath.Join(gc.mainPackagePath(), "vendor"))
-			if err != nil {
-				return err
-			}
-			for _, file := range files {
-				if file.IsDir() {
-					numSubDirs++
-				}
-			}
-
-			if numSubDirs > 0 {
-				runGlideInstall = false
-			}
-		}
-
-		if runGlideInstall {
-			gc.Compiler.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
-			gc.Compiler.Command.SetDir(gc.mainPackagePath())
-			defer gc.Compiler.Command.SetDir("")
-
-			err := gc.Compiler.Command.Run("glide", "install")
-			if err != nil {
-				return err
-			}
-		} else {
-			gc.Compiler.Log.Info("Note: skipping (glide install) due to non-empty vendor directory.")
-		}
-
 		if len(packages) == 0 {
 			packages = append(packages, ".")
 			gc.Compiler.Log.Warning("Installing package '.' (default)")
