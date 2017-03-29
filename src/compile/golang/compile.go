@@ -1,4 +1,4 @@
-package main
+package golang
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"github.com/cloudfoundry/libbuildpack"
 )
 
-type GoCompiler struct {
+type Compiler struct {
 	Compiler        *libbuildpack.Compiler
 	VendorTool      string
 	GoVersion       string
@@ -29,90 +29,7 @@ type Godep struct {
 	WorkspaceExists bool
 }
 
-func main() {
-	compiler, err := libbuildpack.NewCompiler(os.Args[1:], libbuildpack.NewLogger())
-	err = compiler.CheckBuildpackValid()
-	if err != nil {
-		panic(err)
-	}
-
-	err = compiler.LoadSuppliedDeps()
-	if err != nil {
-		panic(err)
-	}
-
-	gc := GoCompiler{Compiler: compiler}
-	err = gc.Compile()
-	if err != nil {
-		panic(err)
-	}
-
-	compiler.StagingComplete()
-}
-
-func (gc *GoCompiler) Compile() error {
-	var err error
-
-	if err := gc.SelectVendorTool(); err != nil {
-		gc.Compiler.Log.Error("Unable to select Go vendor tool: %s", err.Error())
-		return err
-	}
-
-	if err := gc.InstallVendorTool("/tmp"); err != nil {
-		gc.Compiler.Log.Error("Unable to install %s: %s", gc.VendorTool, err.Error())
-		return err
-	}
-
-	if err := gc.SelectGoVersion(); err != nil {
-		gc.Compiler.Log.Error("Unable to determine Go version to install: %s", err.Error())
-		return err
-	}
-
-	if err := gc.InstallGo(); err != nil {
-		gc.Compiler.Log.Error("Error installing Go: %s", err.Error())
-	}
-
-	if err := gc.SetMainPackageName(); err != nil {
-		gc.Compiler.Log.Error("Unable to determine import path: %s", err.Error())
-		return err
-	}
-
-	if err := gc.CheckBinDirectory(); err != nil {
-		gc.Compiler.Log.Error("Error checking bin directory: %s", err.Error())
-		return err
-	}
-
-	if err := gc.SetupGoPath(); err != nil {
-		gc.Compiler.Log.Error("Unable to setup Go path: %s", err.Error())
-		return err
-	}
-
-	gc.SetBuildFlags()
-	if err = gc.SetInstallPackages(); err != nil {
-		gc.Compiler.Log.Error("Unable to determine packages to install: %s", err.Error())
-		return err
-	}
-
-	if err := gc.CompileApp(); err != nil {
-		gc.Compiler.Log.Error("Unable to compile application: %s", err.Error())
-		return err
-	}
-
-	err = ioutil.WriteFile("/tmp/buildpack-release-step.yml", []byte(releaseYAML(gc.MainPackageName)), 0644)
-	if err != nil {
-		gc.Compiler.Log.Error("Unable to write relase yml: %s", err.Error())
-		return err
-	}
-
-	if err := gc.CreateStartupScripts(); err != nil {
-		gc.Compiler.Log.Error("Unable to create startup scripts: %s", err.Error())
-		return err
-	}
-
-	return nil
-}
-
-func (gc *GoCompiler) SelectVendorTool() error {
+func (gc *Compiler) SelectVendorTool() error {
 	godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
 	isGodep, err := libbuildpack.FileExists(godepsJSONFile)
 	if err != nil {
@@ -169,7 +86,7 @@ func (gc *GoCompiler) SelectVendorTool() error {
 	return nil
 }
 
-func (gc *GoCompiler) InstallVendorTool(tmpDir string) error {
+func (gc *Compiler) InstallVendorTool(tmpDir string) error {
 	if gc.VendorTool == "go_nativevendoring" {
 		return nil
 	}
@@ -184,7 +101,7 @@ func (gc *GoCompiler) InstallVendorTool(tmpDir string) error {
 	return addToPath(filepath.Join(installDir, "bin"))
 }
 
-func (gc *GoCompiler) SelectGoVersion() error {
+func (gc *Compiler) SelectGoVersion() error {
 	goVersion := os.Getenv("GOVERSION")
 
 	if gc.VendorTool == "godep" {
@@ -212,7 +129,7 @@ func (gc *GoCompiler) SelectGoVersion() error {
 	return nil
 }
 
-func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
+func (gc *Compiler) ParseGoVersion(partialGoVersion string) (string, error) {
 	existingVersions := gc.Compiler.Manifest.AllDependencyVersions("go")
 
 	if len(strings.Split(partialGoVersion, ".")) == 2 {
@@ -229,7 +146,7 @@ func (gc *GoCompiler) ParseGoVersion(partialGoVersion string) (string, error) {
 	return expandedVer, nil
 }
 
-func (gc *GoCompiler) InstallGo() error {
+func (gc *Compiler) InstallGo() error {
 	err := os.MkdirAll(filepath.Join(gc.Compiler.BuildDir, "bin"), 0755)
 	if err != nil {
 		return err
@@ -265,7 +182,7 @@ func (gc *GoCompiler) InstallGo() error {
 	return os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), filepath.Join(goInstallDir, "go", "bin")))
 }
 
-func (gc *GoCompiler) SetMainPackageName() error {
+func (gc *Compiler) SetMainPackageName() error {
 	switch gc.VendorTool {
 	case "godep":
 		gc.MainPackageName = gc.Godep.ImportPath
@@ -292,7 +209,7 @@ func (gc *GoCompiler) SetMainPackageName() error {
 	return nil
 }
 
-func (gc *GoCompiler) CheckBinDirectory() error {
+func (gc *Compiler) CheckBinDirectory() error {
 	fi, err := os.Stat(filepath.Join(gc.Compiler.BuildDir, "bin"))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -310,7 +227,7 @@ func (gc *GoCompiler) CheckBinDirectory() error {
 	return errors.New("invalid bin")
 }
 
-func (gc *GoCompiler) SetupGoPath() error {
+func (gc *Compiler) SetupGoPath() error {
 	var skipMoveFile = map[string]bool{
 		"Procfile": true,
 		".profile": true,
@@ -385,7 +302,7 @@ func (gc *GoCompiler) SetupGoPath() error {
 	return nil
 }
 
-func (gc *GoCompiler) SetBuildFlags() {
+func (gc *Compiler) SetBuildFlags() {
 	flags := []string{"-tags", "cloudfoundry", "-buildmode", "pie"}
 
 	if os.Getenv("GO_LINKER_SYMBOL") != "" && os.Getenv("GO_LINKER_VALUE") != "" {
@@ -398,7 +315,7 @@ func (gc *GoCompiler) SetBuildFlags() {
 	return
 }
 
-func (gc *GoCompiler) SetInstallPackages() error {
+func (gc *Compiler) SetInstallPackages() error {
 	var packages []string
 	useVendorDir := true
 	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "vendor"))
@@ -507,7 +424,7 @@ func (gc *GoCompiler) SetInstallPackages() error {
 	return nil
 }
 
-func (gc *GoCompiler) CompileApp() error {
+func (gc *Compiler) CompileApp() error {
 	cmd := "go"
 	args := []string{"install", "-v"}
 	args = append(args, gc.BuildFlags...)
@@ -530,8 +447,12 @@ func (gc *GoCompiler) CompileApp() error {
 	return nil
 }
 
-func (gc *GoCompiler) CreateStartupScripts() error {
-	var err error
+func (gc *Compiler) CreateStartupScripts() error {
+	err := ioutil.WriteFile("/tmp/buildpack-release-step.yml", []byte(releaseYAML(gc.MainPackageName)), 0644)
+	if err != nil {
+		gc.Compiler.Log.Error("Unable to write relase yml: %s", err.Error())
+		return err
+	}
 
 	if os.Getenv("GO_INSTALL_TOOLS_IN_IMAGE") == "true" {
 		gc.Compiler.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
@@ -568,15 +489,15 @@ func (gc *GoCompiler) CreateStartupScripts() error {
 	return libbuildpack.WriteProfileD(gc.Compiler.BuildDir, "go.sh", goScript())
 }
 
-func (gc *GoCompiler) mainPackagePath() string {
+func (gc *Compiler) mainPackagePath() string {
 	return filepath.Join(gc.GoPath, "src", gc.MainPackageName)
 }
 
-func (gc *GoCompiler) goInstallLocation() string {
+func (gc *Compiler) goInstallLocation() string {
 	return filepath.Join(gc.Compiler.CacheDir, "go"+gc.GoVersion)
 }
 
-func (gc *GoCompiler) updatePackagesForVendor(packages []string) []string {
+func (gc *Compiler) updatePackagesForVendor(packages []string) []string {
 	var newPackages []string
 
 	for _, pkg := range packages {
@@ -591,7 +512,7 @@ func (gc *GoCompiler) updatePackagesForVendor(packages []string) []string {
 	return newPackages
 }
 
-func (gc *GoCompiler) isGB() (bool, error) {
+func (gc *Compiler) isGB() (bool, error) {
 	srcDir := filepath.Join(gc.Compiler.BuildDir, "src")
 	srcDirAtAppRoot, err := libbuildpack.FileExists(srcDir)
 	if err != nil {

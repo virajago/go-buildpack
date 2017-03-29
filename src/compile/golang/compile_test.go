@@ -1,7 +1,7 @@
-package main_test
+package golang_test
 
 import (
-	c "compile"
+	g "compile/golang"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,15 +16,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//go:generate mockgen -source=vendor/github.com/cloudfoundry/libbuildpack/manifest.go --destination=mocks_manifest_test.go --package=main_test --imports=.=github.com/cloudfoundry/libbuildpack
-//go:generate mockgen -source=vendor/github.com/cloudfoundry/libbuildpack/command_runner.go --destination=mocks_command_runner_test.go --package=main_test
+//go:generate mockgen -source=vendor/github.com/cloudfoundry/libbuildpack/manifest.go --destination=mocks_manifest_test.go --package=golang_test --imports=.=github.com/cloudfoundry/libbuildpack
+//go:generate mockgen -source=vendor/github.com/cloudfoundry/libbuildpack/command_runner.go --destination=mocks_command_runner_test.go --package=golang_test
 
 var _ = Describe("Compile", func() {
 	var (
 		buildDir          string
 		cacheDir          string
 		depsDir           string
-		gc                *c.GoCompiler
+		gc                *g.Compiler
 		logger            libbuildpack.Logger
 		buffer            *bytes.Buffer
 		err               error
@@ -37,7 +37,7 @@ var _ = Describe("Compile", func() {
 		goPath            string
 		packageList       []string
 		buildFlags        []string
-		godep             c.Godep
+		godep             g.Godep
 	)
 
 	BeforeEach(func() {
@@ -68,7 +68,7 @@ var _ = Describe("Compile", func() {
 			Command:  mockCommandRunner,
 		}
 
-		gc = &c.GoCompiler{Compiler: bpc,
+		gc = &g.Compiler{Compiler: bpc,
 			VendorTool:      vendorTool,
 			GoVersion:       goVersion,
 			MainPackageName: mainPackageName,
@@ -313,7 +313,7 @@ var _ = Describe("Compile", func() {
 		Context("godep", func() {
 			BeforeEach(func() {
 				vendorTool = "godep"
-				godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
+				godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 			})
 
 			Context("GOVERSION not set", func() {
@@ -736,7 +736,7 @@ var _ = Describe("Compile", func() {
 		Context("the vendor tool is godep", func() {
 			BeforeEach(func() {
 				vendorTool = "godep"
-				godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
+				godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 			})
 
 			It("sets the main package name from Godeps.json", func() {
@@ -860,7 +860,7 @@ var _ = Describe("Compile", func() {
 
 			Context("No packages in Godeps.json", func() {
 				BeforeEach(func() {
-					godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
+					godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 				})
 
 				It("sets packages to the default", func() {
@@ -878,7 +878,7 @@ var _ = Describe("Compile", func() {
 
 			Context("GO_INSTALL_PACKAGE_SPEC is not set", func() {
 				BeforeEach(func() {
-					godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}}
+					godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}}
 				})
 
 				Context("there is no vendor directory and no Godeps workspace", func() {
@@ -905,7 +905,7 @@ var _ = Describe("Compile", func() {
 
 					Context("packages are in the Godeps/_workspace", func() {
 						BeforeEach(func() {
-							godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}, WorkspaceExists: true}
+							godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}, WorkspaceExists: true}
 						})
 
 						It("uses the packages from Godeps.json", func() {
@@ -950,7 +950,7 @@ var _ = Describe("Compile", func() {
 
 				Context("packages are in the Godeps/_workspace", func() {
 					BeforeEach(func() {
-						godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}, WorkspaceExists: true}
+						godep = g.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}, WorkspaceExists: true}
 					})
 
 					It("uses the packages from Godeps.json", func() {
@@ -1203,7 +1203,7 @@ var _ = Describe("Compile", func() {
 			})
 			Context("godeps workspace dir exists", func() {
 				BeforeEach(func() {
-					godep = c.Godep{WorkspaceExists: true}
+					godep = g.Godep{WorkspaceExists: true}
 				})
 
 				It("logs and runs the install command it is going to run", func() {
@@ -1222,7 +1222,7 @@ var _ = Describe("Compile", func() {
 
 			Context("godeps workspace dir does not exist", func() {
 				BeforeEach(func() {
-					godep = c.Godep{WorkspaceExists: false}
+					godep = g.Godep{WorkspaceExists: false}
 				})
 
 				It("logs and runs the install command it is going to run", func() {

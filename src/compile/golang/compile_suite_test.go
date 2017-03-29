@@ -1,4 +1,4 @@
-package main_test
+package golang_test
 
 import (
 	. "github.com/onsi/ginkgo"
