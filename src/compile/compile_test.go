@@ -136,6 +136,29 @@ var _ = Describe("Compile", func() {
 					Expect(gc.Godep.Packages).To(Equal(empty))
 				})
 
+				Context("godeps workspace exists", func() {
+					BeforeEach(func() {
+						err = os.MkdirAll(filepath.Join(buildDir, "Godeps", "_workspace", "src"), 0755)
+						Expect(err).To(BeNil())
+					})
+
+					It("sets Godep.WorkspaceExists to true", func() {
+						_, err := gc.SelectVendorTool()
+						Expect(err).To(BeNil())
+
+						Expect(gc.Godep.WorkspaceExists).To(BeTrue())
+					})
+				})
+
+				Context("godeps does not exist", func() {
+
+					It("sets Godep.WorkspaceExists to false", func() {
+						_, err := gc.SelectVendorTool()
+						Expect(err).To(BeNil())
+
+						Expect(gc.Godep.WorkspaceExists).To(BeFalse())
+					})
+				})
 			})
 
 			Context("bad Godeps.json file", func() {
@@ -884,8 +907,7 @@ var _ = Describe("Compile", func() {
 
 					Context("packages are in the Godeps/_workspace", func() {
 						BeforeEach(func() {
-							err = os.MkdirAll(filepath.Join(mainPackagePath, "Godeps", "_workspace", "src"), 0755)
-							Expect(err).To(BeNil())
+							godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}, WorkspaceExists: true}
 						})
 
 						It("uses the packages from Godeps.json", func() {
@@ -931,8 +953,7 @@ var _ = Describe("Compile", func() {
 
 				Context("packages are in the Godeps/_workspace", func() {
 					BeforeEach(func() {
-						err = os.MkdirAll(filepath.Join(mainPackagePath, "Godeps", "_workspace", "src"), 0755)
-						Expect(err).To(BeNil())
+						godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6", Packages: []string{"foo", "bar"}, WorkspaceExists: true}
 					})
 
 					It("uses the packages from Godeps.json", func() {
@@ -1182,11 +1203,12 @@ var _ = Describe("Compile", func() {
 		})
 
 		Context("the tool is godep", func() {
+			BeforeEach(func() {
+				vendorTool = "godep"
+			})
 			Context("godeps workspace dir exists", func() {
 				BeforeEach(func() {
-					vendorTool = "godep"
-					err = os.MkdirAll(filepath.Join(mainPackagePath, "Godeps", "_workspace", "src"), 0755)
-					Expect(err).To(BeNil())
+					godep = c.Godep{WorkspaceExists: true}
 				})
 
 				It("logs and runs the install command it is going to run", func() {
@@ -1204,6 +1226,10 @@ var _ = Describe("Compile", func() {
 			})
 
 			Context("godeps workspace dir does not exist", func() {
+				BeforeEach(func() {
+					godep = c.Godep{WorkspaceExists: false}
+				})
+
 				It("logs and runs the install command it is going to run", func() {
 					gomock.InOrder(
 						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
