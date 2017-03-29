@@ -147,7 +147,7 @@ describe 'CF Go Buildpack' do
 
         browser.visit_path('/')
         expect(browser).to have_body('go, world')
-        expect(app).to have_logged(/Installing go[\d\.]+/)
+        expect(app).to have_logged(/Installing go [\d\.]+/)
         expect(app).to have_logged(/Copy \[\/tmp\//)
 
         expect(app).not_to have_internet_traffic
@@ -162,7 +162,7 @@ describe 'CF Go Buildpack' do
 
         browser.visit_path('/')
         expect(browser).to have_body('go, world')
-        expect(app).to have_logged(/Installing go[\d\.]+/)
+        expect(app).to have_logged(/Installing go [\d\.]+/)
         expect(app).to have_logged(/Copy \[\/tmp\//)
 
         expect(app).not_to have_internet_traffic
@@ -375,7 +375,7 @@ describe 'CF Go Buildpack' do
       expect(app).to be_running
       browser.visit_path('/')
       expect(browser).to have_body('go, world')
-      expect(app).to have_logged(/Installing go1\.6\.\d+/)
+      expect(app).to have_logged(/Installing go 1\.6\.\d+/)
     end
   end
 
