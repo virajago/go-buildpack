@@ -65,6 +65,11 @@ func compile(gc *golang.Compiler) error {
 		return err
 	}
 
+	if err := gc.HandleVendorExperiment(); err != nil {
+		gc.Compiler.Log.Error("Invalid vendor config: %s", err.Error())
+		return err
+	}
+
 	if gc.VendorTool == "glide" {
 		if err := gc.RunGlideInstall(); err != nil {
 			gc.Compiler.Log.Error("Error running 'glide install': %s", err.Error())

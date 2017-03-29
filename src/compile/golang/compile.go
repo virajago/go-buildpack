@@ -12,14 +12,15 @@ import (
 )
 
 type Compiler struct {
-	Compiler        *libbuildpack.Compiler
-	VendorTool      string
-	GoVersion       string
-	MainPackageName string
-	GoPath          string
-	PackageList     []string
-	BuildFlags      []string
-	Godep           Godep
+	Compiler         *libbuildpack.Compiler
+	VendorTool       string
+	GoVersion        string
+	MainPackageName  string
+	GoPath           string
+	PackageList      []string
+	BuildFlags       []string
+	Godep            Godep
+	VendorExperiment bool
 }
 
 type Godep struct {
@@ -359,38 +360,42 @@ func (gc *Compiler) RunGlideInstall() error {
 	return nil
 }
 
+func (gc *Compiler) HandleVendorExperiment() error {
+	gc.VendorExperiment = true
+
+	if os.Getenv("GO15VENDOREXPERIMENT") == "" {
+		return nil
+	}
+
+	go16 := strings.Split(gc.GoVersion, ".")[0] == "1" && strings.Split(gc.GoVersion, ".")[1] == "6"
+	if !go16 {
+		gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
+		return errors.New("unsupported GO15VENDOREXPERIMENT")
+	}
+
+	if os.Getenv("GO15VENDOREXPERIMENT") == "0" {
+		gc.VendorExperiment = false
+	}
+
+	return nil
+}
+
 func (gc *Compiler) SetInstallPackages() error {
 	var packages []string
-	useVendorDir := true
 	vendorDirExists, err := libbuildpack.FileExists(filepath.Join(gc.mainPackagePath(), "vendor"))
 	if err != nil {
 		return err
-	}
-	go16 := strings.Split(gc.GoVersion, ".")[0] == "1" && strings.Split(gc.GoVersion, ".")[1] == "6"
-
-	if os.Getenv("GO15VENDOREXPERIMENT") == "0" && go16 {
-		useVendorDir = false
 	}
 
 	if os.Getenv("GO_INSTALL_PACKAGE_SPEC") != "" {
 		packages = append(packages, strings.Split(os.Getenv("GO_INSTALL_PACKAGE_SPEC"), " ")...)
 	}
 
-	switch gc.VendorTool {
-	case "godep":
-		if os.Getenv("GO15VENDOREXPERIMENT") != "" {
-			if !go16 {
-				gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
-				return errors.New("unsupported GO15VENDOREXPERIMENT")
-			}
-		}
+	if gc.VendorTool == "godep" {
+		useVendorDir := gc.VendorExperiment && !gc.Godep.WorkspaceExists
 
-		if gc.Godep.WorkspaceExists {
-			useVendorDir = false
-
-			if vendorDirExists {
-				gc.Compiler.Log.Warning(godepsWorkspaceWarning())
-			}
+		if gc.Godep.WorkspaceExists && vendorDirExists {
+			gc.Compiler.Log.Warning(godepsWorkspaceWarning())
 		}
 
 		if useVendorDir && !vendorDirExists {
@@ -409,27 +414,19 @@ func (gc *Compiler) SetInstallPackages() error {
 		if useVendorDir {
 			packages = gc.updatePackagesForVendor(packages)
 		}
-	case "glide":
-		if len(packages) == 0 {
-			packages = append(packages, ".")
-			gc.Compiler.Log.Warning("Installing package '.' (default)")
-		}
 
-		packages = gc.updatePackagesForVendor(packages)
-
-	case "go_nativevendoring":
-		if len(packages) == 0 {
-			packages = append(packages, ".")
-			gc.Compiler.Log.Warning("Installing package '.' (default)")
-		}
-
-		if !useVendorDir {
+	} else {
+		if !gc.VendorExperiment && gc.VendorTool == "go_nativevendoring" {
 			gc.Compiler.Log.Error(mustUseVendorError())
 			return errors.New("must use vendor/ for go native vendoring")
 		}
+
+		if len(packages) == 0 {
+			packages = append(packages, ".")
+			gc.Compiler.Log.Warning("Installing package '.' (default)")
+		}
+
 		packages = gc.updatePackagesForVendor(packages)
-	default:
-		return errors.New("invalid vendor tool")
 	}
 
 	gc.PackageList = packages
