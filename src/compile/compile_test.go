@@ -113,20 +113,20 @@ var _ = Describe("Compile", func() {
 }					
 `
 				})
-				It("returns godep", func() {
-					tool, err := gc.SelectVendorTool()
+				It("sets the tool to godep", func() {
+					err = gc.SelectVendorTool()
 					Expect(err).To(BeNil())
 
-					Expect(tool).To(Equal("godep"))
+					Expect(gc.VendorTool).To(Equal("godep"))
 				})
 				It("logs that it is checking the Godeps.json file", func() {
-					_, err := gc.SelectVendorTool()
+					err = gc.SelectVendorTool()
 					Expect(err).To(BeNil())
 
 					Expect(buffer.String()).To(ContainSubstring("-----> Checking Godeps/Godeps.json file"))
 				})
 				It("stores the Godep info in the GoCompiler struct", func() {
-					_, err := gc.SelectVendorTool()
+					err = gc.SelectVendorTool()
 					Expect(err).To(BeNil())
 
 					Expect(gc.Godep.ImportPath).To(Equal("go-online"))
@@ -143,17 +143,16 @@ var _ = Describe("Compile", func() {
 					})
 
 					It("sets Godep.WorkspaceExists to true", func() {
-						_, err := gc.SelectVendorTool()
+						err = gc.SelectVendorTool()
 						Expect(err).To(BeNil())
 
 						Expect(gc.Godep.WorkspaceExists).To(BeTrue())
 					})
 				})
 
-				Context("godeps does not exist", func() {
-
+				Context("godeps workspace does not exist", func() {
 					It("sets Godep.WorkspaceExists to false", func() {
-						_, err := gc.SelectVendorTool()
+						err = gc.SelectVendorTool()
 						Expect(err).To(BeNil())
 
 						Expect(gc.Godep.WorkspaceExists).To(BeFalse())
@@ -167,7 +166,7 @@ var _ = Describe("Compile", func() {
 				})
 
 				It("logs that the Godeps.json file is invalid and returns an error", func() {
-					_, err := gc.SelectVendorTool()
+					err := gc.SelectVendorTool()
 					Expect(err).NotTo(BeNil())
 
 					Expect(buffer.String()).To(ContainSubstring("**ERROR** Bad Godeps/Godeps.json file"))
@@ -181,7 +180,7 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("logs that .godir is deprecated and returns an error", func() {
-				_, err := gc.SelectVendorTool()
+				err = gc.SelectVendorTool()
 				Expect(err).NotTo(BeNil())
 
 				Expect(buffer.String()).To(ContainSubstring("**ERROR** Deprecated, .godir file found! Please update to supported Godep or Glide dependency managers."))
@@ -197,11 +196,11 @@ var _ = Describe("Compile", func() {
 				mockManifest.EXPECT().DefaultVersion("go").Return(dep, nil)
 			})
 
-			It("returns glide", func() {
-				tool, err := gc.SelectVendorTool()
+			It("sets the tool to glide", func() {
+				err = gc.SelectVendorTool()
 				Expect(err).To(BeNil())
 
-				Expect(tool).To(Equal("glide"))
+				Expect(gc.VendorTool).To(Equal("glide"))
 			})
 		})
 
@@ -215,7 +214,7 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("logs that gb is deprecated and returns an error", func() {
-				_, err := gc.SelectVendorTool()
+				err = gc.SelectVendorTool()
 				Expect(err).NotTo(BeNil())
 
 				Expect(buffer.String()).To(ContainSubstring("**ERROR** Cloud Foundry does not support the GB package manager."))
@@ -231,11 +230,11 @@ var _ = Describe("Compile", func() {
 				mockManifest.EXPECT().DefaultVersion("go").Return(dep, nil)
 			})
 
-			It("returns go_nativevendoring", func() {
-				tool, err := gc.SelectVendorTool()
+			It("sets the tool to go_nativevendoring", func() {
+				err = gc.SelectVendorTool()
 				Expect(err).To(BeNil())
 
-				Expect(tool).To(Equal("go_nativevendoring"))
+				Expect(gc.VendorTool).To(Equal("go_nativevendoring"))
 			})
 		})
 	})
@@ -318,11 +317,11 @@ var _ = Describe("Compile", func() {
 			})
 
 			Context("GOVERSION not set", func() {
-				It("returns the go version from Godeps.json", func() {
-					goVersion, err := gc.SelectGoVersion()
+				It("sets the go version from Godeps.json", func() {
+					err = gc.SelectGoVersion()
 					Expect(err).To(BeNil())
 
-					Expect(goVersion).To(Equal("1.6.4"))
+					Expect(gc.GoVersion).To(Equal("1.6.4"))
 				})
 			})
 
@@ -340,11 +339,11 @@ var _ = Describe("Compile", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("returns the go version from GOVERSION and logs a warning", func() {
-					goVersion, err := gc.SelectGoVersion()
+				It("sets the go version from GOVERSION and logs a warning", func() {
+					err = gc.SelectGoVersion()
 					Expect(err).To(BeNil())
 
-					Expect(goVersion).To(Equal("34.34.0"))
+					Expect(gc.GoVersion).To(Equal("34.34.0"))
 					Expect(buffer.String()).To(ContainSubstring("**WARNING** Using $GOVERSION override.\n"))
 					Expect(buffer.String()).To(ContainSubstring("    $GOVERSION = go34.34\n"))
 					Expect(buffer.String()).To(ContainSubstring("If this isn't what you want please run:\n"))
@@ -364,11 +363,11 @@ var _ = Describe("Compile", func() {
 					vendorTool = "glide"
 				})
 
-				It("returns the default go version from the manifest.yml", func() {
-					goVersion, err := gc.SelectGoVersion()
+				It("sets the go version to the default from the manifest.yml", func() {
+					err = gc.SelectGoVersion()
 					Expect(err).To(BeNil())
 
-					Expect(goVersion).To(Equal("1.14.3"))
+					Expect(gc.GoVersion).To(Equal("1.14.3"))
 				})
 			})
 			Context("GOVERSION is set", func() {
@@ -386,11 +385,11 @@ var _ = Describe("Compile", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("returns the go version from GOVERSION", func() {
-					goVersion, err := gc.SelectGoVersion()
+				It("sets the go version from GOVERSION", func() {
+					err = gc.SelectGoVersion()
 					Expect(err).To(BeNil())
 
-					Expect(goVersion).To(Equal("34.34.0"))
+					Expect(gc.GoVersion).To(Equal("34.34.0"))
 				})
 			})
 		})
@@ -559,11 +558,11 @@ var _ = Describe("Compile", func() {
 		})
 	})
 
-	Describe("SetupBuildFlags", func() {
+	Describe("SetBuildFlags", func() {
 		Context("link environment variables not set", func() {
 			It("contains the default flags", func() {
-				flags := gc.SetupBuildFlags()
-				Expect(flags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie"}))
+				gc.SetBuildFlags()
+				Expect(gc.BuildFlags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie"}))
 			})
 		})
 
@@ -594,8 +593,8 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("contains the ldflags argument", func() {
-				flags := gc.SetupBuildFlags()
-				Expect(flags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie", "-ldflags", "-X package.main.thing=some_string"}))
+				gc.SetBuildFlags()
+				Expect(gc.BuildFlags).To(Equal([]string{"-tags", "cloudfoundry", "-buildmode", "pie", "-ldflags", "-X package.main.thing=some_string"}))
 			})
 		})
 	})
@@ -641,39 +640,39 @@ var _ = Describe("Compile", func() {
 		})
 
 		It("creates <buildDir>/bin", func() {
-			_, err = gc.SetupGoPath()
+			err = gc.SetupGoPath()
 			Expect(err).To(BeNil())
 
 			Expect(filepath.Join(buildDir, "bin")).To(BeADirectory())
 		})
 
 		Context("GO_SETUP_GOPATH_IN_IMAGE != true", func() {
-			It("sets  GOPATH to a temp directory", func() {
-				_, err = gc.SetupGoPath()
+			It("sets GOPATH to a temp directory", func() {
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
 				dirRegex := regexp.MustCompile(`\/.{3,}\/gobuildpack\.gopath[0-9]{8,}\/\.go`)
 				Expect(dirRegex.Match([]byte(os.Getenv("GOPATH")))).To(BeTrue())
 			})
 
-			It("it returns the gopath", func() {
-				path, err := gc.SetupGoPath()
+			It("sets GoPath in the compiler", func() {
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
 				dirRegex := regexp.MustCompile(`\/.{3,}\/gobuildpack\.gopath[0-9]{8,}\/\.go`)
-				Expect(dirRegex.Match([]byte(path))).To(BeTrue())
+				Expect(dirRegex.Match([]byte(gc.GoPath))).To(BeTrue())
 			})
 
 			It("copies the buildDir contents to <tempdir>/.go/src/<mainPackageName>", func() {
-				path, err := gc.SetupGoPath()
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(path, "src", mainPackageName, "main.go")).To(BeAnExistingFile())
-				Expect(filepath.Join(path, "src", mainPackageName, "vendor", "lib.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(gc.GoPath, "src", mainPackageName, "main.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(gc.GoPath, "src", mainPackageName, "vendor", "lib.go")).To(BeAnExistingFile())
 			})
 
 			It("sets GOBIN to <buildDir>/bin", func() {
-				_, err = gc.SetupGoPath()
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
 				Expect(os.Getenv("GOBIN")).To(Equal(filepath.Join(buildDir, "bin")))
@@ -686,46 +685,46 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("sets GOPATH to the build directory", func() {
-				_, err = gc.SetupGoPath()
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
 				Expect(os.Getenv("GOPATH")).To(Equal(buildDir))
 			})
 
-			It("returns the go path", func() {
-				path, err := gc.SetupGoPath()
+			It("sets GoPath in the compiler", func() {
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(path).To(Equal(buildDir))
+				Expect(gc.GoPath).To(Equal(buildDir))
 			})
 
 			It("moves the buildDir contents to <buildDir>/src/<mainPackageName>", func() {
-				path, err := gc.SetupGoPath()
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(path, "src", mainPackageName, "main.go")).To(BeAnExistingFile())
-				Expect(filepath.Join(path, "src", mainPackageName, "vendor", "lib.go")).To(BeAnExistingFile())
-				Expect(filepath.Join(path, "src", mainPackageName, "src", "a/package/name")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(gc.GoPath, "src", mainPackageName, "main.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(gc.GoPath, "src", mainPackageName, "vendor", "lib.go")).To(BeAnExistingFile())
+				Expect(filepath.Join(gc.GoPath, "src", mainPackageName, "src", "a/package/name")).NotTo(BeAnExistingFile())
 			})
 
 			It("does not move the Procfile", func() {
-				path, err := gc.SetupGoPath()
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(path, "src", mainPackageName, "Procfile")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(gc.GoPath, "src", mainPackageName, "Procfile")).NotTo(BeAnExistingFile())
 				Expect(filepath.Join(buildDir, "Procfile")).To(BeAnExistingFile())
 			})
 
 			It("does not move the .profile script", func() {
-				path, err := gc.SetupGoPath()
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(path, "src", mainPackageName, ".profile")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(gc.GoPath, "src", mainPackageName, ".profile")).NotTo(BeAnExistingFile())
 				Expect(filepath.Join(buildDir, ".profile")).To(BeAnExistingFile())
 			})
 
 			It("does not set GOBIN", func() {
-				_, err = gc.SetupGoPath()
+				err = gc.SetupGoPath()
 				Expect(err).To(BeNil())
 
 				Expect(os.Getenv("GOBIN")).To(Equal(oldGoBin))
@@ -733,18 +732,18 @@ var _ = Describe("Compile", func() {
 		})
 	})
 
-	Describe("PackageName", func() {
+	Describe("SetMainPackageName", func() {
 		Context("the vendor tool is godep", func() {
 			BeforeEach(func() {
 				vendorTool = "godep"
 				godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 			})
 
-			It("returns the package name from Godeps.json", func() {
-				goPackageName, err := gc.PackageName()
+			It("sets the main package name from Godeps.json", func() {
+				err = gc.SetMainPackageName()
 				Expect(err).To(BeNil())
 
-				Expect(goPackageName).To(Equal("go-online"))
+				Expect(gc.MainPackageName).To(Equal("go-online"))
 			})
 		})
 
@@ -752,17 +751,16 @@ var _ = Describe("Compile", func() {
 			BeforeEach(func() {
 				vendorTool = "glide"
 			})
-			It("returns the value of 'glide name'", func() {
-
+			It("sets the main package name to the value of 'glide name'", func() {
 				gomock.InOrder(
 					mockCommandRunner.EXPECT().SetDir(buildDir),
 					mockCommandRunner.EXPECT().CaptureStdout("glide", "name").Return("go-package-name\n", nil),
 					mockCommandRunner.EXPECT().SetDir(""),
 				)
 
-				goPackageName, err := gc.PackageName()
+				err = gc.SetMainPackageName()
 				Expect(err).To(BeNil())
-				Expect(goPackageName).To(Equal("go-package-name"))
+				Expect(gc.MainPackageName).To(Equal("go-package-name"))
 			})
 		})
 
@@ -773,7 +771,7 @@ var _ = Describe("Compile", func() {
 
 			Context("GOPACKAGENAME is not set", func() {
 				It("logs an error", func() {
-					_, err := gc.PackageName()
+					err = gc.SetMainPackageName()
 					Expect(err).NotTo(BeNil())
 
 					Expect(buffer.String()).To(ContainSubstring("**ERROR** To use go native vendoring set the $GOPACKAGENAME"))
@@ -795,16 +793,16 @@ var _ = Describe("Compile", func() {
 				})
 
 				It("returns the package name from GOPACKAGENAME", func() {
-					goPackageName, err := gc.PackageName()
+					err = gc.SetMainPackageName()
 					Expect(err).To(BeNil())
 
-					Expect(goPackageName).To(Equal("my-go-app"))
+					Expect(gc.MainPackageName).To(Equal("my-go-app"))
 				})
 			})
 		})
 	})
 
-	Describe("PackagesToInstall", func() {
+	Describe("SetInstallPackages", func() {
 		var mainPackagePath string
 
 		BeforeEach(func() {
@@ -843,14 +841,14 @@ var _ = Describe("Compile", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("uses the packages from the env var", func() {
-					packages, err := gc.PackagesToInstall()
+				It("sets the packages from the env var", func() {
+					err = gc.SetInstallPackages()
 					Expect(err).To(BeNil())
-					Expect(packages).To(Equal([]string{"a-package-name", "another-package"}))
+					Expect(gc.PackageList).To(Equal([]string{"a-package-name", "another-package"}))
 				})
 
 				It("logs a warning that it overrode the Godeps.json packages", func() {
-					_, err := gc.PackagesToInstall()
+					err := gc.SetInstallPackages()
 					Expect(err).To(BeNil())
 					Expect(buffer.String()).To(ContainSubstring("**WARNING** Using $GO_INSTALL_PACKAGE_SPEC override."))
 					Expect(buffer.String()).To(ContainSubstring("    $GO_INSTALL_PACKAGE_SPEC = a-package-name"))
@@ -865,14 +863,14 @@ var _ = Describe("Compile", func() {
 					godep = c.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 				})
 
-				It("returns default", func() {
-					packages, err := gc.PackagesToInstall()
+				It("sets packages to the default", func() {
+					err = gc.SetInstallPackages()
 					Expect(err).To(BeNil())
-					Expect(packages).To(Equal([]string{"."}))
+					Expect(gc.PackageList).To(Equal([]string{"."}))
 				})
 
 				It("logs a warning that it is using the default", func() {
-					_, err := gc.PackagesToInstall()
+					err = gc.SetInstallPackages()
 					Expect(err).To(BeNil())
 					Expect(buffer.String()).To(ContainSubstring("**WARNING** Installing package '.' (default)"))
 				})
@@ -885,7 +883,7 @@ var _ = Describe("Compile", func() {
 
 				Context("there is no vendor directory and no Godeps workspace", func() {
 					It("logs a warning that ther is no vendor directory", func() {
-						_, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
 						Expect(buffer.String()).To(ContainSubstring("**WARNING** vendor/ directory does not exist"))
@@ -899,10 +897,10 @@ var _ = Describe("Compile", func() {
 					})
 
 					It("handles the vendoring correctly", func() {
-						packages, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
-						Expect(packages).To(Equal([]string{filepath.Join(mainPackageName, "vendor", "foo"), "bar"}))
+						Expect(gc.PackageList).To(Equal([]string{filepath.Join(mainPackageName, "vendor", "foo"), "bar"}))
 					})
 
 					Context("packages are in the Godeps/_workspace", func() {
@@ -911,20 +909,19 @@ var _ = Describe("Compile", func() {
 						})
 
 						It("uses the packages from Godeps.json", func() {
-							packages, err := gc.PackagesToInstall()
+							err = gc.SetInstallPackages()
 							Expect(err).To(BeNil())
 
-							Expect(packages).To(Equal([]string{"foo", "bar"}))
+							Expect(gc.PackageList).To(Equal([]string{"foo", "bar"}))
 						})
 
 						It("logs a warning about vendor and godeps both existing", func() {
-							_, err := gc.PackagesToInstall()
+							err = gc.SetInstallPackages()
 							Expect(err).To(BeNil())
 
 							Expect(buffer.String()).To(ContainSubstring("**WARNING** Godeps/_workspace/src and vendor/ exist"))
 							Expect(buffer.String()).To(ContainSubstring("code may not compile. Please convert all deps to vendor/"))
 						})
-
 					})
 
 					Context("go 1.6.x with GO15VENDOREXPERIMENT=0", func() {
@@ -943,10 +940,10 @@ var _ = Describe("Compile", func() {
 						})
 
 						It("uses the packages from Godeps.json", func() {
-							packages, err := gc.PackagesToInstall()
+							err = gc.SetInstallPackages()
 							Expect(err).To(BeNil())
 
-							Expect(packages).To(Equal([]string{"foo", "bar"}))
+							Expect(gc.PackageList).To(Equal([]string{"foo", "bar"}))
 						})
 					})
 				})
@@ -957,14 +954,14 @@ var _ = Describe("Compile", func() {
 					})
 
 					It("uses the packages from Godeps.json", func() {
-						packages, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
-						Expect(packages).To(Equal([]string{"foo", "bar"}))
+						Expect(gc.PackageList).To(Equal([]string{"foo", "bar"}))
 					})
 
 					It("doesn't log any warnings", func() {
-						_, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
 						Expect(buffer.String()).To(Equal(""))
@@ -986,14 +983,13 @@ var _ = Describe("Compile", func() {
 					})
 
 					It("errors out with a warning messaage", func() {
-						_, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).NotTo(BeNil())
 
 						Expect(buffer.String()).To(ContainSubstring("**ERROR** GO15VENDOREXPERIMENT is set, but is not supported by go1.7 and later"))
 						Expect(buffer.String()).To(ContainSubstring("Run 'cf unset-env <app> GO15VENDOREXPERIMENT' before pushing again"))
 					})
 				})
-
 			})
 		})
 		Context("the vendor tool is go_nativevendoring", func() {
@@ -1021,31 +1017,30 @@ var _ = Describe("Compile", func() {
 						Expect(err).To(BeNil())
 					})
 					It("handles the vendoring correctly", func() {
-						packages, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
-						Expect(packages).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
+						Expect(gc.PackageList).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
 					})
-
 				})
 				Context("packages are not vendored", func() {
-					It("returns the packages", func() {
-						packages, err := gc.PackagesToInstall()
+					It("sets the packages", func() {
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
-						Expect(packages).To(Equal([]string{"a-package-name", "another-package"}))
+						Expect(gc.PackageList).To(Equal([]string{"a-package-name", "another-package"}))
 					})
 				})
 			})
 			Context("GO_INSTALL_PACKAGE_SPEC is not set", func() {
-				It("returns default", func() {
-					packages, err := gc.PackagesToInstall()
+				It("sets packages to  default", func() {
+					err = gc.SetInstallPackages()
 					Expect(err).To(BeNil())
-					Expect(packages).To(Equal([]string{"."}))
+					Expect(gc.PackageList).To(Equal([]string{"."}))
 				})
 
 				It("logs a warning that it is using the default", func() {
-					_, err := gc.PackagesToInstall()
+					err = gc.SetInstallPackages()
 					Expect(err).To(BeNil())
 					Expect(buffer.String()).To(ContainSubstring("**WARNING** Installing package '.' (default)"))
 				})
@@ -1070,7 +1065,7 @@ var _ = Describe("Compile", func() {
 					})
 
 					It("logs a error and returns an error", func() {
-						_, err = gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).NotTo(BeNil())
 
 						Expect(buffer.String()).To(ContainSubstring("**ERROR** $GO15VENDOREXPERIMENT=0. To vendor your packages in vendor/"))
@@ -1084,7 +1079,7 @@ var _ = Describe("Compile", func() {
 					})
 
 					It("doesn't log a error", func() {
-						_, err = gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 						Expect(buffer.String()).NotTo(ContainSubstring("**ERROR**"))
 					})
@@ -1110,17 +1105,17 @@ var _ = Describe("Compile", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("returns the packages", func() {
+				It("sets the packages in the compiler", func() {
 					gomock.InOrder(
 						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
 						mockCommandRunner.EXPECT().Run("glide", "install").Return(nil),
 						mockCommandRunner.EXPECT().SetDir(""),
 					)
 
-					packages, err := gc.PackagesToInstall()
+					err = gc.SetInstallPackages()
 					Expect(err).To(BeNil())
 
-					Expect(packages).To(Equal([]string{"a-package-name", "another-package"}))
+					Expect(gc.PackageList).To(Equal([]string{"a-package-name", "another-package"}))
 				})
 
 				Context("packages are already vendored", func() {
@@ -1129,10 +1124,10 @@ var _ = Describe("Compile", func() {
 						Expect(err).To(BeNil())
 					})
 					It("handles the vendoring correctly", func() {
-						packages, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
-						Expect(packages).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
+						Expect(gc.PackageList).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
 					})
 				})
 				Context("packages are not already vendored", func() {
@@ -1146,10 +1141,10 @@ var _ = Describe("Compile", func() {
 							mockCommandRunner.EXPECT().SetDir(""),
 						)
 
-						packages, err := gc.PackagesToInstall()
+						err = gc.SetInstallPackages()
 						Expect(err).To(BeNil())
 
-						Expect(packages).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
+						Expect(gc.PackageList).To(Equal([]string{"a-package-name", filepath.Join(mainPackageName, "vendor", "another-package")}))
 					})
 				})
 
@@ -1162,9 +1157,9 @@ var _ = Describe("Compile", func() {
 						mockCommandRunner.EXPECT().SetDir(""),
 					)
 
-					packages, err := gc.PackagesToInstall()
+					err = gc.SetInstallPackages()
 					Expect(err).To(BeNil())
-					Expect(packages).To(Equal([]string{"."}))
+					Expect(gc.PackageList).To(Equal([]string{"."}))
 				})
 
 				It("logs a warning that it is using the default", func() {
@@ -1174,7 +1169,7 @@ var _ = Describe("Compile", func() {
 						mockCommandRunner.EXPECT().SetDir(""),
 					)
 
-					_, err := gc.PackagesToInstall()
+					err := gc.SetInstallPackages()
 					Expect(err).To(BeNil())
 					Expect(buffer.String()).To(ContainSubstring("**WARNING** Installing package '.' (default)"))
 				})
