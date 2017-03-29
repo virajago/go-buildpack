@@ -12,7 +12,7 @@ describe 'golang unit tests' do
   end
 
   it 'passes all the unit tests' do
-    Dir.chdir('src/compile') do
+    Dir.chdir('src/compile/golang') do
       _, stdout, stderr, wait_thr = Open3.popen3('go test')
       exit_status = wait_thr.value
       puts "Go Compile Suite stdout:"
