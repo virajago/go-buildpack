@@ -198,6 +198,7 @@ func (gc *Compiler) SetMainPackageName() error {
 			return err
 		}
 		gc.MainPackageName = strings.TrimSpace(stdout)
+
 	case "go_nativevendoring":
 		gc.MainPackageName = os.Getenv("GOPACKAGENAME")
 		if gc.MainPackageName == "" {
@@ -249,19 +250,20 @@ func (gc *Compiler) SetupGoPath() error {
 		goPath = filepath.Join(tmpDir, ".go")
 	}
 
-	packageDir := filepath.Join(goPath, "src", gc.MainPackageName)
-	err := os.MkdirAll(packageDir, 0755)
+	err := os.Setenv("GOPATH", goPath)
 	if err != nil {
 		return err
 	}
-
-	err = os.Setenv("GOPATH", goPath)
-	if err != nil {
-		return err
-	}
+	gc.GoPath = goPath
 
 	binDir := filepath.Join(gc.Compiler.BuildDir, "bin")
 	err = os.MkdirAll(binDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	packageDir := gc.mainPackagePath()
+	err = os.MkdirAll(packageDir, 0755)
 	if err != nil {
 		return err
 	}
@@ -295,13 +297,7 @@ func (gc *Compiler) SetupGoPath() error {
 	}
 
 	// unset git dir or it will mess with go install
-	err = os.Unsetenv("GIT_DIR")
-	if err != nil {
-		return err
-	}
-
-	gc.GoPath = goPath
-	return nil
+	return os.Unsetenv("GIT_DIR")
 }
 
 func (gc *Compiler) SetBuildFlags() {
