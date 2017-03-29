@@ -478,7 +478,7 @@ var _ = Describe("Compile", func() {
 				err = gc.InstallGo()
 				Expect(err).To(BeNil())
 
-				newPath := fmt.Sprintf("%s:%s", oldPath, filepath.Join(goInstallDir, "go", "bin"))
+				newPath := fmt.Sprintf("%s:%s", filepath.Join(goInstallDir, "go", "bin"), oldPath)
 				Expect(os.Getenv("PATH")).To(Equal(newPath))
 			})
 		})
@@ -508,7 +508,7 @@ var _ = Describe("Compile", func() {
 				err = gc.InstallGo()
 				Expect(err).To(BeNil())
 
-				newPath := fmt.Sprintf("%s:%s", oldPath, filepath.Join(goInstallDir, "go", "bin"))
+				newPath := fmt.Sprintf("%s:%s", filepath.Join(goInstallDir, "go", "bin"), oldPath)
 				Expect(os.Getenv("PATH")).To(Equal(newPath))
 			})
 

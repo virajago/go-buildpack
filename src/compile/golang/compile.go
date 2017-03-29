@@ -32,6 +32,26 @@ type Godep struct {
 
 func (gc *Compiler) SelectVendorTool() error {
 	godepsJSONFile := filepath.Join(gc.Compiler.BuildDir, "Godeps", "Godeps.json")
+
+	godirFile := filepath.Join(gc.Compiler.BuildDir, ".godir")
+	isGodir, err := libbuildpack.FileExists(godirFile)
+	if err != nil {
+		return err
+	}
+	if isGodir {
+		gc.Compiler.Log.Error(godirError())
+		return errors.New(".godir deprecated")
+	}
+
+	isGB, err := gc.isGB()
+	if err != nil {
+		return err
+	}
+	if isGB {
+		gc.Compiler.Log.Error(gbError())
+		return errors.New("gb unsupported")
+	}
+
 	isGodep, err := libbuildpack.FileExists(godepsJSONFile)
 	if err != nil {
 		return err
@@ -54,16 +74,6 @@ func (gc *Compiler) SelectVendorTool() error {
 		return nil
 	}
 
-	godirFile := filepath.Join(gc.Compiler.BuildDir, ".godir")
-	isGodir, err := libbuildpack.FileExists(godirFile)
-	if err != nil {
-		return err
-	}
-	if isGodir {
-		gc.Compiler.Log.Error(godirError())
-		return errors.New(".godir deprecated")
-	}
-
 	glideFile := filepath.Join(gc.Compiler.BuildDir, "glide.yaml")
 	isGlide, err := libbuildpack.FileExists(glideFile)
 	if err != nil {
@@ -72,15 +82,6 @@ func (gc *Compiler) SelectVendorTool() error {
 	if isGlide {
 		gc.VendorTool = "glide"
 		return nil
-	}
-
-	isGB, err := gc.isGB()
-	if err != nil {
-		return err
-	}
-	if isGB {
-		gc.Compiler.Log.Error(gbError())
-		return errors.New("gb unsupported")
 	}
 
 	gc.VendorTool = "go_nativevendoring"
@@ -180,7 +181,7 @@ func (gc *Compiler) InstallGo() error {
 		return err
 	}
 
-	return os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), filepath.Join(goInstallDir, "go", "bin")))
+	return addToPath(filepath.Join(goInstallDir, "go", "bin"))
 }
 
 func (gc *Compiler) SetMainPackageName() error {
@@ -414,7 +415,6 @@ func (gc *Compiler) SetInstallPackages() error {
 		if useVendorDir {
 			packages = gc.updatePackagesForVendor(packages)
 		}
-
 	} else {
 		if !gc.VendorExperiment && gc.VendorTool == "go_nativevendoring" {
 			gc.Compiler.Log.Error(mustUseVendorError())
