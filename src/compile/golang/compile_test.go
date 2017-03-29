@@ -1249,7 +1249,7 @@ var _ = Describe("Compile", func() {
 					godep = g.Godep{WorkspaceExists: true}
 				})
 
-				It("logs and runs the install command it is going to run", func() {
+				It("wraps the install command with godep", func() {
 					gomock.InOrder(
 						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
 						mockCommandRunner.EXPECT().Run("godep", "go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
@@ -1268,29 +1268,43 @@ var _ = Describe("Compile", func() {
 					godep = g.Godep{WorkspaceExists: false}
 				})
 
-				It("logs and runs the install command it is going to run", func() {
-					gomock.InOrder(
-						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-						mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
-						mockCommandRunner.EXPECT().SetDir(""),
-					)
+				Context("vendor experiment is true", func() {
+					BeforeEach(func() {
+						vendorExperiment = true
+					})
 
-					err = gc.CompileApp()
-					Expect(err).To(BeNil())
+					It("does not wrap the install command with godep", func() {
+						gomock.InOrder(
+							mockCommandRunner.EXPECT().SetDir(mainPackagePath),
+							mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
+							mockCommandRunner.EXPECT().SetDir(""),
+						)
 
-					Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
+						err = gc.CompileApp()
+						Expect(err).To(BeNil())
+
+						Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
+					})
+
 				})
-				It("logs and runs the install command it is going to run", func() {
-					gomock.InOrder(
-						mockCommandRunner.EXPECT().SetDir(mainPackagePath),
-						mockCommandRunner.EXPECT().Run("go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
-						mockCommandRunner.EXPECT().SetDir(""),
-					)
 
-					err = gc.CompileApp()
-					Expect(err).To(BeNil())
+				Context("vendor experiment is false", func() {
+					BeforeEach(func() {
+						vendorExperiment = false
+					})
 
-					Expect(buffer.String()).To(ContainSubstring("-----> Running: go install -v -a=1 -b=2 first second"))
+					It("wraps the command with godep", func() {
+						gomock.InOrder(
+							mockCommandRunner.EXPECT().SetDir(mainPackagePath),
+							mockCommandRunner.EXPECT().Run("godep", "go", "install", "-v", "-a=1", "-b=2", "first", "second").Return(nil),
+							mockCommandRunner.EXPECT().SetDir(""),
+						)
+
+						err = gc.CompileApp()
+						Expect(err).To(BeNil())
+
+						Expect(buffer.String()).To(ContainSubstring("-----> Running: godep go install -v -a=1 -b=2 first second"))
+					})
 				})
 			})
 		})

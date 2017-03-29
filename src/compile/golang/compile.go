@@ -439,7 +439,7 @@ func (gc *Compiler) CompileApp() error {
 	args = append(args, gc.BuildFlags...)
 	args = append(args, gc.PackageList...)
 
-	if gc.VendorTool == "godep" && gc.Godep.WorkspaceExists {
+	if gc.VendorTool == "godep" && (gc.Godep.WorkspaceExists || !gc.VendorExperiment) {
 		args = append([]string{"go"}, args...)
 		cmd = "godep"
 	}
