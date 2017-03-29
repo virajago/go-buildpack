@@ -447,8 +447,8 @@ func (gc *Compiler) CompileApp() error {
 	return nil
 }
 
-func (gc *Compiler) CreateStartupScripts() error {
-	err := ioutil.WriteFile("/tmp/buildpack-release-step.yml", []byte(releaseYAML(gc.MainPackageName)), 0644)
+func (gc *Compiler) CreateStartupEnvironment(tempDir string) error {
+	err := ioutil.WriteFile(filepath.Join(tempDir, "buildpack-release-step.yml"), []byte(releaseYAML(gc.MainPackageName)), 0644)
 	if err != nil {
 		gc.Compiler.Log.Error("Unable to write relase yml: %s", err.Error())
 		return err

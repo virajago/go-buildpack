@@ -76,7 +76,7 @@ func compile(gc *golang.Compiler) error {
 		return err
 	}
 
-	if err := gc.CreateStartupScripts(); err != nil {
+	if err := gc.CreateStartupEnvironment("/tmp"); err != nil {
 		gc.Compiler.Log.Error("Unable to create startup scripts: %s", err.Error())
 		return err
 	}

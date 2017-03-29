@@ -1290,7 +1290,9 @@ var _ = Describe("Compile", func() {
 		})
 	})
 
-	Describe("CreateStartupScripts", func() {
+	Describe("CreateStartupEnvironment", func() {
+		var tempDir string
+
 		BeforeEach(func() {
 			goVersion = "3.4.5"
 			mainPackageName = "a-go-app"
@@ -1299,10 +1301,27 @@ var _ = Describe("Compile", func() {
 			goDir := filepath.Join(cacheDir, "go"+goVersion, "go")
 			err = os.MkdirAll(goDir, 0755)
 			Expect(err).To(BeNil())
+
+			tempDir, err = ioutil.TempDir("", "gobuildpack.releaseyml")
+			Expect(err).To(BeNil())
+		})
+
+		It("writes the buildpack-release-step.yml file", func() {
+			err = gc.CreateStartupEnvironment(tempDir)
+			Expect(err).To(BeNil())
+
+			contents, err := ioutil.ReadFile(filepath.Join(tempDir, "buildpack-release-step.yml"))
+			Expect(err).To(BeNil())
+
+			yaml := `---
+default_process_types:
+    web: a-go-app
+`
+			Expect(string(contents)).To(Equal(yaml))
 		})
 
 		It("writes the go.sh script to .profile.d", func() {
-			err = gc.CreateStartupScripts()
+			err = gc.CreateStartupEnvironment(tempDir)
 			Expect(err).To(BeNil())
 
 			contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "go.sh"))
@@ -1313,7 +1332,7 @@ var _ = Describe("Compile", func() {
 
 		Context("GO_INSTALL_TOOLS_IN_IMAGE is not set", func() {
 			It("does not copy the go toolchain", func() {
-				err = gc.CreateStartupScripts()
+				err = gc.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
 				Expect(filepath.Join(buildDir, ".cloudfoundry", "go")).NotTo(BeADirectory())
@@ -1335,21 +1354,21 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("copies the go toolchain", func() {
-				err = gc.CreateStartupScripts()
+				err = gc.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
 				Expect(filepath.Join(buildDir, ".cloudfoundry", "go")).To(BeADirectory())
 			})
 
 			It("logs that the tool chain was copied", func() {
-				err = gc.CreateStartupScripts()
+				err = gc.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
 				Expect(buffer.String()).To(ContainSubstring("-----> Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go"))
 			})
 
 			It("writes the goroot.sh script to .profile.d", func() {
-				err = gc.CreateStartupScripts()
+				err = gc.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
 				contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "goroot.sh"))
@@ -1380,7 +1399,7 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("cleans up the pkg directory", func() {
-				err = gc.CreateStartupScripts()
+				err = gc.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
 				Expect(buffer.String()).To(ContainSubstring("-----> Cleaning up $GOPATH/pkg"))
@@ -1388,7 +1407,7 @@ var _ = Describe("Compile", func() {
 			})
 
 			It("writes the zzgopath.sh script to .profile.d", func() {
-				err = gc.CreateStartupScripts()
+				err = gc.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
 				contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "zzgopath.sh"))
