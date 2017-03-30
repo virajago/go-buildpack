@@ -11,18 +11,30 @@ func main() {
 	compiler, err := libbuildpack.NewCompiler(os.Args[1:], libbuildpack.NewLogger())
 	err = compiler.CheckBuildpackValid()
 	if err != nil {
-		panic(err)
+		os.Exit(10)
 	}
 
 	err = compiler.LoadSuppliedDeps()
 	if err != nil {
-		panic(err)
+		os.Exit(11)
+	}
+
+	err = libbuildpack.RunBeforeCompile(compiler)
+	if err != nil {
+		compiler.Log.Error("Before Compile: %s", err.Error())
+		os.Exit(12)
 	}
 
 	gc := golang.Compiler{Compiler: compiler}
 	err = compile(&gc)
 	if err != nil {
-		panic(err)
+		os.Exit(13)
+	}
+
+	err = libbuildpack.RunAfterCompile(compiler)
+	if err != nil {
+		compiler.Log.Error("After Compile: %s", err.Error())
+		os.Exit(14)
 	}
 
 	compiler.StagingComplete()

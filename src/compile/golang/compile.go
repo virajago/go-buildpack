@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver"
 	"github.com/cloudfoundry/libbuildpack"
 )
 
@@ -134,7 +135,7 @@ func (gc *Compiler) SelectGoVersion() error {
 func (gc *Compiler) ParseGoVersion(partialGoVersion string) (string, error) {
 	existingVersions := gc.Compiler.Manifest.AllDependencyVersions("go")
 
-	if len(strings.Split(partialGoVersion, ".")) == 2 {
+	if len(strings.Split(partialGoVersion, ".")) < 3 {
 		partialGoVersion += ".x"
 	}
 
@@ -364,7 +365,12 @@ func (gc *Compiler) HandleVendorExperiment() error {
 		return nil
 	}
 
-	go16 := strings.Split(gc.GoVersion, ".")[0] == "1" && strings.Split(gc.GoVersion, ".")[1] == "6"
+	ver, err := semver.NewVersion(gc.GoVersion)
+	if err != nil {
+		return err
+	}
+
+	go16 := ver.Major() == 1 && ver.Minor() == 6
 	if !go16 {
 		gc.Compiler.Log.Error(unsupportedGO15VENDOREXPERIMENTerror())
 		return errors.New("unsupported GO15VENDOREXPERIMENT")

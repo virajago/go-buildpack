@@ -154,6 +154,20 @@ describe 'CF Go Buildpack' do
       end
     end
 
+    context 'app has before/after compile hooks' do
+      let(:app_name) { 'go_app/src/go_app' }
+      let(:deploy_options) { { env: {'BP_DEBUG' => '1'} } }
+
+      it 'runs the hooks' do
+        expect(app).to have_logged('HOOKS 1: BeforeCompile')
+        expect(app).to have_logged('HOOKS 2: AfterCompile')
+
+        expect(app).to be_running
+        browser.visit_path('/')
+        expect(browser).to have_body('go, world')
+      end
+    end
+
     context 'app has no Procfile' do
       let(:app_name) { 'no_procfile/src/no_procfile' }
 
