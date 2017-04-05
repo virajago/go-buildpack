@@ -1,11 +1,11 @@
-package golang
+package common
 
 import (
 	"fmt"
 	"path"
 )
 
-func releaseYAML(mainPackageName string) string {
+func ReleaseYAML(mainPackageName string) string {
 	release := `---
 default_process_types:
     web: %s
@@ -13,18 +13,18 @@ default_process_types:
 	return fmt.Sprintf(release, path.Base(mainPackageName))
 }
 
-func goScript() string {
+func GoScript() string {
 	return "PATH=$PATH:$HOME/bin"
 }
 
-func goRootScript() string {
+func GoRootScript() string {
 	contents := `export GOROOT=$HOME/.cloudfoundry/go
 PATH=$PATH:$GOROOT/bin`
 
 	return contents
 }
 
-func zzGoPathScript(mainPackageName string) string {
+func ZZGoPathScript(mainPackageName string) string {
 	contents := `export GOPATH=$HOME
 cd $GOPATH/src/%s
 `
