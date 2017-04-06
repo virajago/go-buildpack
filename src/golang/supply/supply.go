@@ -1,9 +1,6 @@
 package supply
 
 import (
-	"golang/common"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/cloudfoundry/libbuildpack"
@@ -13,17 +10,9 @@ type Supplier struct {
 	Stager     *libbuildpack.Stager
 	VendorTool string
 	GoVersion  string
-	Godep      common.Godep
 }
 
 func Run(gs *Supplier) error {
-	if err := os.MkdirAll(filepath.Join(gs.Stager.DepDir(), "bin"), 0755); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(gs.Stager.DepDir(), "env"), 0755); err != nil {
-		return err
-	}
-
 	if err := gs.InstallVendorTools(); err != nil {
 		gs.Stager.Log.Error("Unable to install vendor tools", err.Error())
 		return err
@@ -45,7 +34,7 @@ func (gs *Supplier) InstallVendorTools() error {
 			return err
 		}
 
-		if err := os.Symlink(filepath.Join(installDir, "bin", tool), filepath.Join(gs.Stager.DepDir(), "bin", tool)); err != nil {
+		if err := gs.Stager.AddBinDependencyLink(filepath.Join(installDir, "bin", tool), tool); err != nil {
 			return err
 		}
 
@@ -61,9 +50,9 @@ func (gs *Supplier) InstallGo() error {
 		return err
 	}
 
-	if err := os.Symlink(filepath.Join(goInstallDir, "go", "bin", "go"), filepath.Join(gs.Stager.DepDir(), "bin", "go")); err != nil {
+	if err := gs.Stager.AddBinDependencyLink(filepath.Join(goInstallDir, "go", "bin", "go"), "go"); err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(filepath.Join(gs.Stager.DepDir(), "env", "GOROOT"), []byte(filepath.Join(goInstallDir, "go")), 0644)
+	return gs.Stager.WriteEnvFile("GOROOT", filepath.Join(goInstallDir, "go"))
 }

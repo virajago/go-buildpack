@@ -22,7 +22,7 @@ var launchEnvVarDirs = map[string]string{
 	"LD_LIBRARY_PATH": "lib",
 }
 
-func SetEnvironmentFromSupply(depsDir string) error {
+func SetStagingEnvironment(depsDir string) error {
 	for envVar, dir := range stagingEnvVarDirs {
 		oldVal := os.Getenv(envVar)
 
@@ -89,7 +89,7 @@ func existingDepsDirs(depsDir, subDir, prefix string) ([]string, error) {
 	return existingDirs, nil
 }
 
-func WriteProfileDFromSupply(depsDir, buildDir string) error {
+func SetLaunchEnvironment(depsDir, buildDir string) error {
 	scriptContents := ""
 
 	for envVar, dir := range launchEnvVarDirs {

@@ -21,7 +21,7 @@ func main() {
 		os.Exit(12)
 	}
 
-	err = libbuildpack.SetEnvironmentFromSupply(stager.DepsDir)
+	err = libbuildpack.SetStagingEnvironment(stager.DepsDir)
 	if err != nil {
 		stager.Log.Error("Unable to setup environment variables: %s", err.Error())
 		os.Exit(13)
@@ -44,7 +44,6 @@ func main() {
 	gs := supply.Supplier{
 		Stager:     stager,
 		GoVersion:  goVersion,
-		Godep:      godep,
 		VendorTool: vendorTool,
 	}
 
