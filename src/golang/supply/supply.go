@@ -1,7 +1,6 @@
 package supply
 
 import (
-	"fmt"
 	"golang/common"
 	"io/ioutil"
 	"os"
@@ -57,25 +56,11 @@ func (gs *Supplier) InstallVendorTools() error {
 func (gs *Supplier) InstallGo() error {
 	goInstallDir := filepath.Join(gs.Stager.DepDir(), "go"+gs.GoVersion)
 
-	// goInstalled, err := libbuildpack.FileExists(filepath.Join(goInstallDir, "go"))
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if goInstalled {
-	// 	gc.Stager.Log.BeginStep("Using go %s", gc.GoVersion)
-	// } else {
-	err := gs.Stager.ClearCache()
-	if err != nil {
-		return fmt.Errorf("clearing cache: %s", err.Error())
-	}
-
 	dep := libbuildpack.Dependency{Name: "go", Version: gs.GoVersion}
-	err = gs.Stager.Manifest.InstallDependency(dep, goInstallDir)
-	if err != nil {
+	if err := gs.Stager.Manifest.InstallDependency(dep, goInstallDir); err != nil {
 		return err
 	}
-	// }
+
 	if err := os.Symlink(filepath.Join(goInstallDir, "go", "bin", "go"), filepath.Join(gs.Stager.DepDir(), "bin", "go")); err != nil {
 		return err
 	}
