@@ -115,7 +115,7 @@ func (gs *Supplier) ParseGoVersion(partialGoVersion string) (string, error) {
 }
 
 func (gs *Supplier) InstallGo() error {
-	goInstallDir := filepath.Join(gs.DepDir, "go")
+	goInstallDir := filepath.Join(gs.DepDir, "go"+gs.GoVersion)
 
 	// goInstalled, err := libbuildpack.FileExists(filepath.Join(goInstallDir, "go"))
 	// if err != nil {
@@ -136,7 +136,7 @@ func (gs *Supplier) InstallGo() error {
 		return err
 	}
 	// }
-	if err := os.Symlink(filepath.Join(goInstallDir, "bin", "go"), filepath.Join(gs.DepDir, "bin", "go")); err != nil {
+	if err := os.Symlink(filepath.Join(goInstallDir, "go", "bin", "go"), filepath.Join(gs.DepDir, "bin", "go")); err != nil {
 		return err
 	}
 

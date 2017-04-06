@@ -7,6 +7,6 @@ BINDIR=$ROOTDIR/bin
 export GOPATH=$ROOTDIR
 export GOOS=linux
 
-#go build -o $BINDIR/compile golang/compile/cli
+go build -o $BINDIR/compile golang/compile/
 go build -o $BINDIR/supply golang/supply/cli
 go build -o $BINDIR/finalize golang/finalize/cli

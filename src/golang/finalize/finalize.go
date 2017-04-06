@@ -29,6 +29,12 @@ type Finalizer struct {
 func Run(gf *Finalizer) error {
 	var err error
 
+	err = gf.Compiler.LoadSuppliedDeps()
+	if err != nil {
+		gf.Compiler.Log.Error("Unable to setup environment: %s", err.Error())
+		return err
+	}
+
 	gf.VendorTool, err = common.SelectVendorTool(gf.Compiler, &gf.Godep)
 	if err != nil {
 		gf.Compiler.Log.Error("Unable to select Go vendor tool: %s", err.Error())

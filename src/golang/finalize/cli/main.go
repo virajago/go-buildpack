@@ -20,11 +20,6 @@ func main() {
 		os.Exit(10)
 	}
 
-	err = compiler.LoadSuppliedDeps()
-	if err != nil {
-		os.Exit(11)
-	}
-
 	gf := finalize.Finalizer{
 		Compiler: compiler,
 		DepDir:   filepath.Join(depsDir, depsIdx),

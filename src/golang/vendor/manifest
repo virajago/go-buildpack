@@ -5,7 +5,7 @@
 			"importpath": "github.com/Masterminds/semver",
 			"repository": "https://github.com/Masterminds/semver",
 			"vcs": "git",
-			"revision": "0a299beba2ae1df55623af7412bd5015ba97f209",
+			"revision": "3f0ab6d4ab4bed1c61caf056b63a6e62190c7801",
 			"branch": "master",
 			"notests": true
 		},
@@ -13,8 +13,8 @@
 			"importpath": "github.com/cloudfoundry/libbuildpack",
 			"repository": "https://github.com/cloudfoundry/libbuildpack",
 			"vcs": "git",
-			"revision": "f1113682ebe4956ca8ffec9b4baffe5d344e9928",
-			"branch": "master",
+			"revision": "66e9b662aa74bb709273a8c413ba346beb2033d1",
+			"branch": "supply-finalize",
 			"notests": true
 		},
 		{
@@ -48,7 +48,7 @@
 			"importpath": "github.com/onsi/ginkgo",
 			"repository": "https://github.com/onsi/ginkgo",
 			"vcs": "git",
-			"revision": "d77ac73b3158beef5e072936829e575458d0ca1c",
+			"revision": "77a8c1e5c40d6bb6c5eb4dd4bdce9763564f6298",
 			"branch": "master",
 			"notests": true
 		},
@@ -64,7 +64,7 @@
 			"importpath": "golang.org/x/sys/unix",
 			"repository": "https://go.googlesource.com/sys",
 			"vcs": "git",
-			"revision": "9a7256cb28ed514b4e1e5f68959914c4c28a92e0",
+			"revision": "7de4796419dc3b554e6dab3a119a62469569d299",
 			"branch": "master",
 			"path": "/unix",
 			"notests": true
