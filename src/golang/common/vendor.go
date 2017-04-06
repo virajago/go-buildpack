@@ -1,7 +1,11 @@
 package common
 
 import (
+	"errors"
+	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudfoundry/libbuildpack"
 )
@@ -16,24 +20,24 @@ type Godep struct {
 func SelectVendorTool(s *libbuildpack.Stager, godep *Godep) (string, error) {
 	godepsJSONFile := filepath.Join(s.BuildDir, "Godeps", "Godeps.json")
 
-	// godirFile := filepath.Join(gs.Compiler.BuildDir, ".godir")
-	// isGodir, err := libbuildpack.FileExists(godirFile)
-	// if err != nil {
-	// 	return err
-	// }
-	// if isGodir {
-	// 	gs.Compiler.Log.Error(godirError())
-	// 	return errors.New(".godir deprecated")
-	// }
+	godirFile := filepath.Join(s.BuildDir, ".godir")
+	isGodir, err := libbuildpack.FileExists(godirFile)
+	if err != nil {
+		return "", err
+	}
+	if isGodir {
+		s.Log.Error(GodirError())
+		return "", errors.New(".godir deprecated")
+	}
 
-	// isGB, err := gs.isGB()
-	// if err != nil {
-	// 	return err
-	// }
-	// if isGB {
-	// 	gs.Compiler.Log.Error(gbError())
-	// 	return errors.New("gb unsupported")
-	// }
+	isGoPath, err := isGoPath(s.BuildDir)
+	if err != nil {
+		return "", err
+	}
+	if isGoPath {
+		s.Log.Error(GBError())
+		return "", errors.New("gb unsupported")
+	}
 
 	isGodep, err := libbuildpack.FileExists(godepsJSONFile)
 	if err != nil {
@@ -66,4 +70,48 @@ func SelectVendorTool(s *libbuildpack.Stager, godep *Godep) (string, error) {
 	}
 
 	return "go_nativevendoring", nil
+}
+
+func isGoPath(buildDir string) (bool, error) {
+	srcDir := filepath.Join(buildDir, "src")
+	srcDirAtAppRoot, err := libbuildpack.FileExists(srcDir)
+	if err != nil {
+		return false, err
+	}
+
+	if !srcDirAtAppRoot {
+		return false, nil
+	}
+
+	files, err := ioutil.ReadDir(filepath.Join(buildDir, "src"))
+	if err != nil {
+		return false, err
+	}
+
+	for _, file := range files {
+		if file.Mode().IsDir() {
+			err = filepath.Walk(filepath.Join(srcDir, file.Name()), isGoFile)
+			if err != nil {
+				if err.Error() == "found Go file" {
+					return true, nil
+				}
+
+				return false, err
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func isGoFile(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if strings.HasSuffix(path, ".go") {
+		return errors.New("found Go file")
+	}
+
+	return nil
 }

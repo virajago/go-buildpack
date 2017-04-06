@@ -27,10 +27,10 @@ func SelectGoVersion(s *libbuildpack.Stager, vendorTool string, godep Godep) (st
 		}
 	}
 
-	return ParseGoVersion(s, goVersion)
+	return parseGoVersion(s, goVersion)
 }
 
-func ParseGoVersion(s *libbuildpack.Stager, partialGoVersion string) (string, error) {
+func parseGoVersion(s *libbuildpack.Stager, partialGoVersion string) (string, error) {
 	existingVersions := s.Manifest.AllDependencyVersions("go")
 
 	if len(strings.Split(partialGoVersion, ".")) < 3 {
