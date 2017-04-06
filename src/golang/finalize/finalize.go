@@ -14,73 +14,60 @@ import (
 )
 
 type Finalizer struct {
-	Compiler         *libbuildpack.Compiler
-	DepDir           string
+	Stager           *libbuildpack.Stager
 	VendorTool       string
 	GoVersion        string
+	Godep            common.Godep
 	MainPackageName  string
 	GoPath           string
 	PackageList      []string
 	BuildFlags       []string
-	Godep            common.Godep
 	VendorExperiment bool
 }
 
 func Run(gf *Finalizer) error {
 	var err error
 
-	err = gf.Compiler.LoadSuppliedDeps()
-	if err != nil {
-		gf.Compiler.Log.Error("Unable to setup environment: %s", err.Error())
-		return err
-	}
-
-	gf.VendorTool, err = common.SelectVendorTool(gf.Compiler, &gf.Godep)
-	if err != nil {
-		gf.Compiler.Log.Error("Unable to select Go vendor tool: %s", err.Error())
-		return err
-	}
-
 	if err := gf.SetMainPackageName(); err != nil {
-		gf.Compiler.Log.Error("Unable to determine import path: %s", err.Error())
+		gf.Stager.Log.Error("Unable to determine import path: %s", err.Error())
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Join(gf.Compiler.BuildDir, "bin"), 0755); err != nil {
-		gf.Compiler.Log.Error("Unable to create <build-dir>/bin: %s", err.Error())
+	if err := os.MkdirAll(filepath.Join(gf.Stager.BuildDir, "bin"), 0755); err != nil {
+		gf.Stager.Log.Error("Unable to create <build-dir>/bin: %s", err.Error())
 		return err
 	}
 
 	if err := gf.SetupGoPath(); err != nil {
-		gf.Compiler.Log.Error("Unable to setup Go path: %s", err.Error())
+		gf.Stager.Log.Error("Unable to setup Go path: %s", err.Error())
 		return err
 	}
 
 	if err := gf.HandleVendorExperiment(); err != nil {
-		gf.Compiler.Log.Error("Invalid vendor config: %s", err.Error())
+		gf.Stager.Log.Error("Invalid vendor config: %s", err.Error())
 		return err
 	}
 
 	if gf.VendorTool == "glide" {
 		if err := gf.RunGlideInstall(); err != nil {
-			gf.Compiler.Log.Error("Error running 'glide install': %s", err.Error())
+			gf.Stager.Log.Error("Error running 'glide install': %s", err.Error())
 			return err
 		}
 	}
 
 	gf.SetBuildFlags()
 	if err = gf.SetInstallPackages(); err != nil {
-		gf.Compiler.Log.Error("Unable to determine packages to install: %s", err.Error())
+		gf.Stager.Log.Error("Unable to determine packages to install: %s", err.Error())
 		return err
 	}
 
 	if err := gf.CompileApp(); err != nil {
-		gf.Compiler.Log.Error("Unable to compile application: %s", err.Error())
+		gf.Stager.Log.Error("Unable to compile application: %s", err.Error())
 		return err
 	}
 
 	if err := gf.CreateStartupEnvironment("/tmp"); err != nil {
-		gf.Compiler.Log.Error("Unable to create startup scripts: %s", err.Error())
+		gf.Stager.Log.Error("Unable to create startup scripts: %s", err.Error())
 		return err
 	}
 
@@ -93,10 +80,10 @@ func (gf *Finalizer) SetMainPackageName() error {
 		gf.MainPackageName = gf.Godep.ImportPath
 
 	case "glide":
-		gf.Compiler.Command.SetDir(gf.Compiler.BuildDir)
-		defer gf.Compiler.Command.SetDir("")
+		gf.Stager.Command.SetDir(gf.Stager.BuildDir)
+		defer gf.Stager.Command.SetDir("")
 
-		stdout, err := gf.Compiler.Command.CaptureStdout("glide", "name")
+		stdout, err := gf.Stager.Command.CaptureStdout("glide", "name")
 		if err != nil {
 			return err
 		}
@@ -105,7 +92,7 @@ func (gf *Finalizer) SetMainPackageName() error {
 	case "go_nativevendoring":
 		gf.MainPackageName = os.Getenv("GOPACKAGENAME")
 		if gf.MainPackageName == "" {
-			gf.Compiler.Log.Error(common.NoGOPACKAGENAMEerror())
+			gf.Stager.Log.Error(common.NoGOPACKAGENAMEerror())
 			return errors.New("GOPACKAGENAME unset")
 		}
 
@@ -126,7 +113,7 @@ func (gf *Finalizer) SetupGoPath() error {
 	goPathInImage := os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true"
 
 	if goPathInImage {
-		goPath = gf.Compiler.BuildDir
+		goPath = gf.Stager.BuildDir
 	} else {
 		tmpDir, err := ioutil.TempDir("", "gobuildpack.gopath")
 		if err != nil {
@@ -141,7 +128,7 @@ func (gf *Finalizer) SetupGoPath() error {
 	}
 	gf.GoPath = goPath
 
-	binDir := filepath.Join(gf.Compiler.BuildDir, "bin")
+	binDir := filepath.Join(gf.Stager.BuildDir, "bin")
 	err = os.MkdirAll(binDir, 0755)
 	if err != nil {
 		return err
@@ -154,13 +141,13 @@ func (gf *Finalizer) SetupGoPath() error {
 	}
 
 	if goPathInImage {
-		files, err := ioutil.ReadDir(gf.Compiler.BuildDir)
+		files, err := ioutil.ReadDir(gf.Stager.BuildDir)
 		if err != nil {
 			return err
 		}
 		for _, f := range files {
 			if !skipMoveFile[f.Name()] {
-				src := filepath.Join(gf.Compiler.BuildDir, f.Name())
+				src := filepath.Join(gf.Stager.BuildDir, f.Name())
 				dest := filepath.Join(packageDir, f.Name())
 
 				err = os.Rename(src, dest)
@@ -175,7 +162,7 @@ func (gf *Finalizer) SetupGoPath() error {
 			return err
 		}
 
-		err = libbuildpack.CopyDirectory(gf.Compiler.BuildDir, packageDir)
+		err = libbuildpack.CopyDirectory(gf.Stager.BuildDir, packageDir)
 		if err != nil {
 			return err
 		}
@@ -227,16 +214,16 @@ func (gf *Finalizer) RunGlideInstall() error {
 	}
 
 	if runGlideInstall {
-		gf.Compiler.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
-		gf.Compiler.Command.SetDir(gf.mainPackagePath())
-		defer gf.Compiler.Command.SetDir("")
+		gf.Stager.Log.BeginStep("Fetching any unsaved dependencies (glide install)")
+		gf.Stager.Command.SetDir(gf.mainPackagePath())
+		defer gf.Stager.Command.SetDir("")
 
-		err := gf.Compiler.Command.Run("glide", "install")
+		err := gf.Stager.Command.Run("glide", "install")
 		if err != nil {
 			return err
 		}
 	} else {
-		gf.Compiler.Log.Info("Note: skipping (glide install) due to non-empty vendor directory.")
+		gf.Stager.Log.Info("Note: skipping (glide install) due to non-empty vendor directory.")
 	}
 
 	return nil
@@ -256,7 +243,7 @@ func (gf *Finalizer) HandleVendorExperiment() error {
 
 	go16 := ver.Major() == 1 && ver.Minor() == 6
 	if !go16 {
-		gf.Compiler.Log.Error(common.UnsupportedGO15VENDOREXPERIMENTerror())
+		gf.Stager.Log.Error(common.UnsupportedGO15VENDOREXPERIMENTerror())
 		return errors.New("unsupported GO15VENDOREXPERIMENT")
 	}
 
@@ -282,19 +269,19 @@ func (gf *Finalizer) SetInstallPackages() error {
 		useVendorDir := gf.VendorExperiment && !gf.Godep.WorkspaceExists
 
 		if gf.Godep.WorkspaceExists && vendorDirExists {
-			gf.Compiler.Log.Warning(common.GodepsWorkspaceWarning())
+			gf.Stager.Log.Warning(common.GodepsWorkspaceWarning())
 		}
 
 		if useVendorDir && !vendorDirExists {
-			gf.Compiler.Log.Warning("vendor/ directory does not exist.")
+			gf.Stager.Log.Warning("vendor/ directory does not exist.")
 		}
 
 		if len(packages) != 0 {
-			gf.Compiler.Log.Warning(common.PackageSpecOverride(packages))
+			gf.Stager.Log.Warning(common.PackageSpecOverride(packages))
 		} else if len(gf.Godep.Packages) != 0 {
 			packages = gf.Godep.Packages
 		} else {
-			gf.Compiler.Log.Warning("Installing package '.' (default)")
+			gf.Stager.Log.Warning("Installing package '.' (default)")
 			packages = append(packages, ".")
 		}
 
@@ -303,13 +290,13 @@ func (gf *Finalizer) SetInstallPackages() error {
 		}
 	} else {
 		if !gf.VendorExperiment && gf.VendorTool == "go_nativevendoring" {
-			gf.Compiler.Log.Error(common.MustUseVendorError())
+			gf.Stager.Log.Error(common.MustUseVendorError())
 			return errors.New("must use vendor/ for go native vendoring")
 		}
 
 		if len(packages) == 0 {
 			packages = append(packages, ".")
-			gf.Compiler.Log.Warning("Installing package '.' (default)")
+			gf.Stager.Log.Warning("Installing package '.' (default)")
 		}
 
 		packages = gf.updatePackagesForVendor(packages)
@@ -330,12 +317,12 @@ func (gf *Finalizer) CompileApp() error {
 		cmd = "godep"
 	}
 
-	gf.Compiler.Log.BeginStep(fmt.Sprintf("Running: %s %s", cmd, strings.Join(args, " ")))
+	gf.Stager.Log.BeginStep(fmt.Sprintf("Running: %s %s", cmd, strings.Join(args, " ")))
 
-	gf.Compiler.Command.SetDir(gf.mainPackagePath())
-	defer gf.Compiler.Command.SetDir("")
+	gf.Stager.Command.SetDir(gf.mainPackagePath())
+	defer gf.Stager.Command.SetDir("")
 
-	err := gf.Compiler.Command.Run(cmd, args...)
+	err := gf.Stager.Command.Run(cmd, args...)
 	if err != nil {
 		return err
 	}
@@ -345,14 +332,14 @@ func (gf *Finalizer) CompileApp() error {
 func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
 	err := ioutil.WriteFile(filepath.Join(tempDir, "buildpack-release-step.yml"), []byte(common.ReleaseYAML(gf.MainPackageName)), 0644)
 	if err != nil {
-		gf.Compiler.Log.Error("Unable to write relase yml: %s", err.Error())
+		gf.Stager.Log.Error("Unable to write relase yml: %s", err.Error())
 		return err
 	}
 
 	if os.Getenv("GO_INSTALL_TOOLS_IN_IMAGE") == "true" {
-		gf.Compiler.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
+		gf.Stager.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
 
-		imageDir := filepath.Join(gf.Compiler.BuildDir, ".cloudfoundry")
+		imageDir := filepath.Join(gf.Stager.BuildDir, ".cloudfoundry")
 		err = os.MkdirAll(imageDir, 0755)
 		if err != nil {
 			return err
@@ -362,26 +349,26 @@ func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
 			return err
 		}
 
-		err = libbuildpack.WriteProfileD(gf.Compiler.BuildDir, "goroot.sh", common.GoRootScript())
+		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "goroot.sh", common.GoRootScript())
 		if err != nil {
 			return err
 		}
 	}
 
 	if os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true" {
-		gf.Compiler.Log.BeginStep("Cleaning up $GOPATH/pkg")
+		gf.Stager.Log.BeginStep("Cleaning up $GOPATH/pkg")
 		err = os.RemoveAll(filepath.Join(gf.GoPath, "pkg"))
 		if err != nil {
 			return err
 		}
 
-		err = libbuildpack.WriteProfileD(gf.Compiler.BuildDir, "zzgopath.sh", common.ZZGoPathScript(gf.MainPackageName))
+		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "zzgopath.sh", common.ZZGoPathScript(gf.MainPackageName))
 		if err != nil {
 			return err
 		}
 	}
 
-	return libbuildpack.WriteProfileD(gf.Compiler.BuildDir, "go.sh", common.GoScript())
+	return libbuildpack.WriteProfileD(gf.Stager.BuildDir, "go.sh", common.GoScript())
 }
 
 func (gf *Finalizer) mainPackagePath() string {
@@ -389,7 +376,7 @@ func (gf *Finalizer) mainPackagePath() string {
 }
 
 func (gf *Finalizer) goInstallLocation() string {
-	return filepath.Join(gf.Compiler.CacheDir, "go"+gf.GoVersion)
+	return filepath.Join(gf.Stager.DepsDir, "go"+gf.GoVersion)
 }
 
 func (gf *Finalizer) updatePackagesForVendor(packages []string) []string {
@@ -408,7 +395,7 @@ func (gf *Finalizer) updatePackagesForVendor(packages []string) []string {
 }
 
 func (gf *Finalizer) isGB() (bool, error) {
-	srcDir := filepath.Join(gf.Compiler.BuildDir, "src")
+	srcDir := filepath.Join(gf.Stager.BuildDir, "src")
 	srcDirAtAppRoot, err := libbuildpack.FileExists(srcDir)
 	if err != nil {
 		return false, err
@@ -418,7 +405,7 @@ func (gf *Finalizer) isGB() (bool, error) {
 		return false, nil
 	}
 
-	files, err := ioutil.ReadDir(filepath.Join(gf.Compiler.BuildDir, "src"))
+	files, err := ioutil.ReadDir(filepath.Join(gf.Stager.BuildDir, "src"))
 	if err != nil {
 		return false, err
 	}

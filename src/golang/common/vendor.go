@@ -13,10 +13,10 @@ type Godep struct {
 	WorkspaceExists bool
 }
 
-func SelectVendorTool(c *libbuildpack.Compiler, godep *Godep) (string, error) {
-	godepsJSONFile := filepath.Join(c.BuildDir, "Godeps", "Godeps.json")
+func SelectVendorTool(s *libbuildpack.Stager, godep *Godep) (string, error) {
+	godepsJSONFile := filepath.Join(s.BuildDir, "Godeps", "Godeps.json")
 
-	// godirFile := filepath.Join(gc.Compiler.BuildDir, ".godir")
+	// godirFile := filepath.Join(gs.Compiler.BuildDir, ".godir")
 	// isGodir, err := libbuildpack.FileExists(godirFile)
 	// if err != nil {
 	// 	return err
@@ -40,15 +40,15 @@ func SelectVendorTool(c *libbuildpack.Compiler, godep *Godep) (string, error) {
 		return "", err
 	}
 	if isGodep {
-		c.Log.BeginStep("Checking Godeps/Godeps.json file")
+		s.Log.BeginStep("Checking Godeps/Godeps.json file")
 
-		err = libbuildpack.NewJSON().Load(filepath.Join(c.BuildDir, "Godeps", "Godeps.json"), godep)
+		err = libbuildpack.NewJSON().Load(filepath.Join(s.BuildDir, "Godeps", "Godeps.json"), godep)
 		if err != nil {
-			c.Log.Error("Bad Godeps/Godeps.json file")
+			s.Log.Error("Bad Godeps/Godeps.json file")
 			return "", err
 		}
 
-		godep.WorkspaceExists, err = libbuildpack.FileExists(filepath.Join(c.BuildDir, "Godeps", "_workspace", "src"))
+		godep.WorkspaceExists, err = libbuildpack.FileExists(filepath.Join(s.BuildDir, "Godeps", "_workspace", "src"))
 		if err != nil {
 			return "", err
 		}
@@ -56,7 +56,7 @@ func SelectVendorTool(c *libbuildpack.Compiler, godep *Godep) (string, error) {
 		return "godep", nil
 	}
 
-	glideFile := filepath.Join(c.BuildDir, "glide.yaml")
+	glideFile := filepath.Join(s.BuildDir, "glide.yaml")
 	isGlide, err := libbuildpack.FileExists(glideFile)
 	if err != nil {
 		return "", err

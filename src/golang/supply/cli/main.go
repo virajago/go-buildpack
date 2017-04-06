@@ -1,47 +1,55 @@
 package main
 
 import (
+	"golang/common"
 	"golang/supply"
 	"os"
-	"path/filepath"
 
 	"github.com/cloudfoundry/libbuildpack"
 )
 
 func main() {
-	buildDir := os.Args[1]
-	cacheDir := os.Args[2]
-	depsDir := os.Args[3]
-	depsIdx := os.Args[4]
-
-	logger := libbuildpack.NewLogger()
-
-	compiler, err := libbuildpack.NewCompiler([]string{buildDir, cacheDir, "", depsDir}, logger)
-	err = compiler.CheckBuildpackValid()
+	stager, err := libbuildpack.NewStager(os.Args[1:], libbuildpack.NewLogger())
+	err = stager.CheckBuildpackValid()
 	if err != nil {
-		logger.Error(err.Error())
 		os.Exit(10)
 	}
 
-	// err = libbuildpack.RunBeforeCompile(compiler)
-	// if err != nil {
-	// 	compiler.Log.Error("Before Compile: %s", err.Error())
-	// 	os.Exit(12)
-	// }
-
-	err = libbuildpack.SetEnvironmentFromSupply(depsDir)
+	err = libbuildpack.RunBeforeCompile(stager)
 	if err != nil {
-		logger.Error(err.Error())
-		os.Exit(11)
+		stager.Log.Error("Before Compile: %s", err.Error())
+		os.Exit(12)
+	}
+
+	err = libbuildpack.SetEnvironmentFromSupply(stager.DepsDir)
+	if err != nil {
+		stager.Log.Error("Unable to setup environment variables: %s", err.Error())
+		os.Exit(13)
+	}
+
+	var godep common.Godep
+
+	vendorTool, err := common.SelectVendorTool(stager, &godep)
+	if err != nil {
+		stager.Log.Error("Unable to select Go vendor tool: %s", err.Error())
+		os.Exit(14)
+	}
+
+	goVersion, err := common.SelectGoVersion(stager, vendorTool, godep)
+	if err != nil {
+		stager.Log.Error("Unable to select Go version: %s", err.Error())
+		os.Exit(15)
 	}
 
 	gs := supply.Supplier{
-		Compiler: compiler,
-		DepDir:   filepath.Join(depsDir, depsIdx),
+		Stager:     stager,
+		GoVersion:  goVersion,
+		Godep:      godep,
+		VendorTool: vendorTool,
 	}
 
 	err = supply.Run(&gs)
 	if err != nil {
-		os.Exit(12)
+		os.Exit(16)
 	}
 }
