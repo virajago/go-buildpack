@@ -15,13 +15,13 @@ func main() {
 		os.Exit(10)
 	}
 
-	err = libbuildpack.SetEnvironmentFromSupply(stager.DepsDir)
+	err = libbuildpack.SetStagingEnvironment(stager.DepsDir)
 	if err != nil {
 		stager.Log.Error("Unable to setup environment variables: %s", err.Error())
 		os.Exit(11)
 	}
 
-	err = libbuildpack.WriteProfileDFromSupply(stager.DepsDir, stager.BuildDir)
+	err = libbuildpack.SetLaunchEnvironment(stager.DepsDir, stager.BuildDir)
 	if err != nil {
 		stager.Log.Error("Unable to write .profile.d supply script: %s", err.Error())
 		os.Exit(12)
