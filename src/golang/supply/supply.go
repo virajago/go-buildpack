@@ -22,6 +22,10 @@ func Run(gs *Supplier) error {
 		gs.Stager.Log.Error("Error installing Go: %s", err.Error())
 	}
 
+	if err := gs.Stager.WriteConfigYml("go"); err != nil {
+		gs.Stager.Log.Error("Error writing config.yml: %s", err.Error())
+	}
+
 	return nil
 }
 
