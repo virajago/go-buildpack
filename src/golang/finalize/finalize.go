@@ -376,7 +376,7 @@ func (gf *Finalizer) mainPackagePath() string {
 }
 
 func (gf *Finalizer) goInstallLocation() string {
-	return filepath.Join(gf.Stager.DepsDir, "go"+gf.GoVersion)
+	return filepath.Join(gf.Stager.DepDir(), "go"+gf.GoVersion)
 }
 
 func (gf *Finalizer) updatePackagesForVendor(packages []string) []string {
