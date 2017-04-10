@@ -5,7 +5,7 @@
 			"importpath": "github.com/Masterminds/semver",
 			"repository": "https://github.com/Masterminds/semver",
 			"vcs": "git",
-			"revision": "3f0ab6d4ab4bed1c61caf056b63a6e62190c7801",
+			"revision": "923f129261de8c3e45d529e39824061bd5edf9aa",
 			"branch": "master",
 			"notests": true
 		},
@@ -13,7 +13,7 @@
 			"importpath": "github.com/cloudfoundry/libbuildpack",
 			"repository": "https://github.com/cloudfoundry/libbuildpack",
 			"vcs": "git",
-			"revision": "cc473dab368222d5897a542084c801357bd4d112",
+			"revision": "5994da79d361068a88050bdfaf0e21eb20459e04",
 			"branch": "supply-finalize",
 			"notests": true
 		},
@@ -48,7 +48,7 @@
 			"importpath": "github.com/onsi/ginkgo",
 			"repository": "https://github.com/onsi/ginkgo",
 			"vcs": "git",
-			"revision": "77a8c1e5c40d6bb6c5eb4dd4bdce9763564f6298",
+			"revision": "f40a49d81e5c12e90400620b6242fb29a8e7c9d9",
 			"branch": "master",
 			"notests": true
 		},
@@ -56,7 +56,7 @@
 			"importpath": "github.com/onsi/gomega",
 			"repository": "https://github.com/onsi/gomega",
 			"vcs": "git",
-			"revision": "334b8f472b3af5d541c5642701c1e29e2126f486",
+			"revision": "9b8c753e8dfb382618ba8fa19b4197b5dcb0434c",
 			"branch": "master",
 			"notests": true
 		},
@@ -73,7 +73,7 @@
 			"importpath": "gopkg.in/yaml.v2",
 			"repository": "https://gopkg.in/yaml.v2",
 			"vcs": "git",
-			"revision": "a3f3340b5840cee44f372bddb5880fcbc419b46a",
+			"revision": "cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b",
 			"branch": "v2",
 			"notests": true
 		}
