@@ -10,14 +10,8 @@ export BUILDPACK_DIR=`dirname $(readlink -f ${BASH_SOURCE%/*})`
 source "$BUILDPACK_DIR/scripts/install_go.sh"
 output_dir=$(mktemp -d -t finalizeXXX)
 
-export GOROOT=$GoInstallDir/go
-export GOPATH=$BUILDPACK_DIR
-
 echo "-----> Running go build finalize"
-$GoInstallDir/go/bin/go build -o $output_dir/finalize golang/finalize/cli
-
-unset GOROOT
-unset GOPATH
+GOROOT=$GoInstallDir/go GOPATH=$BUILDPACK_DIR $GoInstallDir/go/bin/go build -o $output_dir/finalize golang/finalize/cli
 
 $output_dir/finalize "$BUILD_DIR" "$CACHE_DIR" "$DEPS_DIR" "$DEPS_IDX"
 
