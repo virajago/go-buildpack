@@ -27,19 +27,6 @@ func main() {
 		os.Exit(13)
 	}
 
-	var godep golang.Godep
-
-	vendorTool, err := golang.SelectVendorTool(stager, &godep)
-	if err != nil {
-		stager.Log.Error("Unable to select Go vendor tool: %s", err.Error())
-		os.Exit(14)
-	}
-
-	goVersion, err := golang.SelectGoVersion(stager, vendorTool, godep)
-	if err != nil {
-		stager.Log.Error("Unable to select Go version: %s", err.Error())
-		os.Exit(15)
-	}
 
 	gs := supply.Supplier{
 		Stager:     stager,
