@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"golang"
 	"golang/finalize"
 	"os"
@@ -10,53 +11,44 @@ import (
 
 func main() {
 	stager, err := libbuildpack.NewStager(os.Args[1:], libbuildpack.NewLogger())
-	err = stager.CheckBuildpackValid()
-	if err != nil {
-		os.Exit(10)
-	}
 
 	err = libbuildpack.SetStagingEnvironment(stager.DepsDir)
 	if err != nil {
 		stager.Log.Error("Unable to setup environment variables: %s", err.Error())
-		os.Exit(11)
+		os.Exit(10)
 	}
 
 	var godep golang.Godep
 
-	vendorTool, err := golang.SelectVendorTool(stager, &godep)
-	if err != nil {
-		stager.Log.Error("Unable to select Go vendor tool: %s", err.Error())
-		os.Exit(12)
-	}
-
-	goVersion, err := golang.SelectGoVersion(stager, vendorTool, godep)
-	if err != nil {
-		stager.Log.Error("Unable to select Go version: %s", err.Error())
-		os.Exit(13)
+	if os.Getenv("supply_VendorTool") == "godep" {
+		if err := json.Unmarshal([]byte(os.Getenv("supply_Godep")), &godep); err != nil {
+			stager.Log.Error("Unable to load supply_Godep json: %s", err.Error())
+			os.Exit(11)
+		}
 	}
 
 	gf := finalize.Finalizer{
 		Stager:     stager,
 		Godep:      godep,
-		GoVersion:  goVersion,
-		VendorTool: vendorTool,
+		GoVersion:  os.Getenv("supply_GoVersion"),
+		VendorTool: os.Getenv("supply_VendorTool"),
 	}
 
 	err = finalize.Run(&gf)
 	if err != nil {
-		os.Exit(14)
+		os.Exit(12)
 	}
 
 	err = libbuildpack.SetLaunchEnvironment(stager.DepsDir, stager.BuildDir)
 	if err != nil {
 		stager.Log.Error("Unable to setup launch environment: %s", err.Error())
-		os.Exit(15)
+		os.Exit(13)
 	}
 
 	err = libbuildpack.RunAfterCompile(stager)
 	if err != nil {
 		stager.Log.Error("After Compile: %s", err.Error())
-		os.Exit(16)
+		os.Exit(14)
 	}
 
 	stager.StagingComplete()

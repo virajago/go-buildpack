@@ -1,7 +1,6 @@
 package main
 
 import (
-	"golang"
 	"golang/supply"
 	"os"
 
@@ -27,11 +26,8 @@ func main() {
 		os.Exit(13)
 	}
 
-
 	gs := supply.Supplier{
-		Stager:     stager,
-		GoVersion:  goVersion,
-		VendorTool: vendorTool,
+		Stager: stager,
 	}
 
 	err = supply.Run(&gs)
