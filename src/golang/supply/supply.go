@@ -32,7 +32,7 @@ func Run(gs *Supplier) error {
 	}
 
 	if err := gs.SelectGoVersion(); err != nil {
-		gs.Stager.Log.Error("Unable to select Go version: %s", err.Error())
+		gs.Stager.Log.Error("Unable to determine Go version to install: %s", err.Error())
 		return err
 	}
 
