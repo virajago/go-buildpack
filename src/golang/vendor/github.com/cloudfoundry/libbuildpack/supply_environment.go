@@ -1,6 +1,7 @@
 package libbuildpack
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -64,6 +65,62 @@ func SetStagingEnvironment(depsDir string) error {
 	return nil
 }
 
+func SetLaunchEnvironment(depsDir, buildDir string) error {
+	scriptContents := ""
+
+	for envVar, dir := range launchEnvVarDirs {
+		depsPaths, err := existingDepsDirs(depsDir, dir, "$DEPS_DIR")
+		if err != nil {
+			return err
+		}
+
+		if len(depsPaths) != 0 {
+			scriptContents += fmt.Sprintf("export %s=%s:$%s\n", envVar, strings.Join(depsPaths, ":"), envVar)
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Join(buildDir, ".profile.d"), 0755); err != nil {
+		return err
+	}
+
+	scriptLocation := filepath.Join(buildDir, ".profile.d", "0000-multi-supply.sh")
+	if err := writeToFile(strings.NewReader(scriptContents), scriptLocation, 0755); err != nil {
+		return err
+	}
+
+	profileDirs, err := existingDepsDirs(depsDir, "profile.d", depsDir)
+	if err != nil {
+		return err
+	}
+
+	for _, dir := range profileDirs {
+		sections := strings.Split(dir, string(filepath.Separator))
+		if len(sections) < 2 {
+			return errors.New("invalid dep dir")
+		}
+
+		depsIdx := sections[len(sections)-2]
+
+		files, err := ioutil.ReadDir(dir)
+		if err != nil {
+			return err
+		}
+
+		for _, file := range files {
+			if file.Mode().IsRegular() {
+				src := filepath.Join(dir, file.Name())
+				dest := filepath.Join(buildDir, ".profile.d", depsIdx+"-"+file.Name())
+
+				if err := CopyFile(src, dest); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func existingDepsDirs(depsDir, subDir, prefix string) ([]string, error) {
 	dirs, err := ioutil.ReadDir(depsDir)
 	if err != nil {
@@ -87,21 +144,4 @@ func existingDepsDirs(depsDir, subDir, prefix string) ([]string, error) {
 	}
 
 	return existingDirs, nil
-}
-
-func SetLaunchEnvironment(depsDir, buildDir string) error {
-	scriptContents := ""
-
-	for envVar, dir := range launchEnvVarDirs {
-		depsPaths, err := existingDepsDirs(depsDir, dir, "$DEPS_DIR")
-		if err != nil {
-			return err
-		}
-
-		if len(depsPaths) != 0 {
-			scriptContents += fmt.Sprintf("export %s=%s:$%s\n", envVar, strings.Join(depsPaths, ":"), envVar)
-		}
-	}
-
-	return WriteProfileD(buildDir, "00-multi-supply.sh", scriptContents)
 }

@@ -340,40 +340,35 @@ func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
 		gf.Stager.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
 
 		imageDir := filepath.Join(gf.Stager.BuildDir, ".cloudfoundry")
-		err = os.MkdirAll(imageDir, 0755)
-		if err != nil {
-			return err
-		}
-		err = libbuildpack.CopyDirectory(gf.goInstallLocation(), imageDir)
-		if err != nil {
+		if err := os.MkdirAll(imageDir, 0755); err != nil {
 			return err
 		}
 
-		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "goroot.sh", golang.GoRootScript())
-		if err != nil {
+		if err := libbuildpack.CopyDirectory(gf.goInstallLocation(), imageDir); err != nil {
+			return err
+		}
+
+		if err := gf.Stager.WriteProfileD("goroot.sh", golang.GoRootScript()); err != nil {
 			return err
 		}
 	} else {
-		err = os.RemoveAll(gf.Stager.DepDir())
-		if err != nil {
+		if err := gf.Stager.ClearDepDir(); err != nil {
 			return err
 		}
 	}
 
 	if os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true" {
 		gf.Stager.Log.BeginStep("Cleaning up $GOPATH/pkg")
-		err = os.RemoveAll(filepath.Join(gf.GoPath, "pkg"))
-		if err != nil {
+		if err := os.RemoveAll(filepath.Join(gf.GoPath, "pkg")); err != nil {
 			return err
 		}
 
-		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "zzgopath.sh", golang.ZZGoPathScript(gf.MainPackageName))
-		if err != nil {
+		if err := gf.Stager.WriteProfileD("zzgopath.sh", golang.ZZGoPathScript(gf.MainPackageName)); err != nil {
 			return err
 		}
 	}
 
-	return libbuildpack.WriteProfileD(gf.Stager.BuildDir, "go.sh", golang.GoScript())
+	return gf.Stager.WriteProfileD("go.sh", golang.GoScript())
 }
 
 func (gf *Finalizer) mainPackagePath() string {

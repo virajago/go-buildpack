@@ -910,11 +910,11 @@ default_process_types:
 			Expect(string(contents)).To(Equal(yaml))
 		})
 
-		It("writes the go.sh script to .profile.d", func() {
+		It("writes the go.sh script to <depDir>/profile.d", func() {
 			err = gf.CreateStartupEnvironment(tempDir)
 			Expect(err).To(BeNil())
 
-			contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "go.sh"))
+			contents, err := ioutil.ReadFile(filepath.Join(gf.Stager.DepDir(), "profile.d", "go.sh"))
 			Expect(err).To(BeNil())
 
 			Expect(string(contents)).To(Equal("PATH=$PATH:$HOME/bin"))
@@ -922,16 +922,25 @@ default_process_types:
 
 		Context("GO_INSTALL_TOOLS_IN_IMAGE is not set", func() {
 			BeforeEach(func() {
-				err = os.MkdirAll(filepath.Join(depsDir, "05"), 0755)
+				err = os.MkdirAll(filepath.Join(depsDir, "06", "go1.2.3"), 0755)
+				Expect(err).To(BeNil())
+
+				err = ioutil.WriteFile(filepath.Join(depsDir, "06", "go1.2.3", "thing.txt"), []byte("abc"), 0644)
+				Expect(err).To(BeNil())
+
+				err = ioutil.WriteFile(filepath.Join(depsDir, "06", "config.yml"), []byte("some yaml"), 0644)
 				Expect(err).To(BeNil())
 			})
 
-			It("removes the dep dir", func() {
+			It("clears the dep dir", func() {
 				err = gf.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(depsDir, "05")).To(BeADirectory())
-				Expect(filepath.Join(depsDir, "06")).NotTo(BeADirectory())
+				Expect(filepath.Join(depsDir, "06", "go1.2.3")).NotTo(BeADirectory())
+
+				content, err := ioutil.ReadFile(filepath.Join(filepath.Join(depsDir, "06"), "config.yml"))
+				Expect(err).To(BeNil())
+				Expect(string(content)).To(Equal("some yaml"))
 			})
 		})
 
@@ -963,11 +972,11 @@ default_process_types:
 				Expect(buffer.String()).To(ContainSubstring("-----> Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go"))
 			})
 
-			It("writes the goroot.sh script to .profile.d", func() {
+			It("writes the goroot.sh script to <depDir>/profile.d", func() {
 				err = gf.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
-				contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "goroot.sh"))
+				contents, err := ioutil.ReadFile(filepath.Join(gf.Stager.DepDir(), "profile.d", "goroot.sh"))
 				Expect(err).To(BeNil())
 
 				Expect(string(contents)).To(ContainSubstring("export GOROOT=$HOME/.cloudfoundry/go"))
@@ -1002,11 +1011,11 @@ default_process_types:
 				Expect(filepath.Join(buildDir, "pkg")).ToNot(BeADirectory())
 			})
 
-			It("writes the zzgopath.sh script to .profile.d", func() {
+			It("writes the zzgopath.sh script to <depDir>/profile.d", func() {
 				err = gf.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
-				contents, err := ioutil.ReadFile(filepath.Join(buildDir, ".profile.d", "zzgopath.sh"))
+				contents, err := ioutil.ReadFile(filepath.Join(gf.Stager.DepDir(), "profile.d", "zzgopath.sh"))
 				Expect(err).To(BeNil())
 
 				Expect(string(contents)).To(ContainSubstring("export GOPATH=$HOME"))

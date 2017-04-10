@@ -21,24 +21,18 @@ func main() {
 		os.Exit(11)
 	}
 
-	err = libbuildpack.SetLaunchEnvironment(stager.DepsDir, stager.BuildDir)
-	if err != nil {
-		stager.Log.Error("Unable to write .profile.d supply script: %s", err.Error())
-		os.Exit(12)
-	}
-
 	var godep golang.Godep
 
 	vendorTool, err := golang.SelectVendorTool(stager, &godep)
 	if err != nil {
 		stager.Log.Error("Unable to select Go vendor tool: %s", err.Error())
-		os.Exit(14)
+		os.Exit(12)
 	}
 
 	goVersion, err := golang.SelectGoVersion(stager, vendorTool, godep)
 	if err != nil {
 		stager.Log.Error("Unable to select Go version: %s", err.Error())
-		os.Exit(15)
+		os.Exit(13)
 	}
 
 	gf := finalize.Finalizer{
@@ -50,13 +44,19 @@ func main() {
 
 	err = finalize.Run(&gf)
 	if err != nil {
-		os.Exit(16)
+		os.Exit(14)
+	}
+
+	err = libbuildpack.SetLaunchEnvironment(stager.DepsDir, stager.BuildDir)
+	if err != nil {
+		stager.Log.Error("Unable to setup launch environment: %s", err.Error())
+		os.Exit(15)
 	}
 
 	err = libbuildpack.RunAfterCompile(stager)
 	if err != nil {
 		stager.Log.Error("After Compile: %s", err.Error())
-		os.Exit(17)
+		os.Exit(16)
 	}
 
 	stager.StagingComplete()
