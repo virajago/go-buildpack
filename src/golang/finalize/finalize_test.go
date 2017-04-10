@@ -48,6 +48,8 @@ var _ = Describe("Finalize", func() {
 		Expect(err).To(BeNil())
 
 		depsIdx = "06"
+		err = os.MkdirAll(filepath.Join(depsDir, depsIdx), 0755)
+		Expect(err).To(BeNil())
 
 		buildDir, err = ioutil.TempDir("", "go-buildpack.build.")
 		Expect(err).To(BeNil())
@@ -919,11 +921,17 @@ default_process_types:
 		})
 
 		Context("GO_INSTALL_TOOLS_IN_IMAGE is not set", func() {
-			It("does not copy the go toolchain", func() {
+			BeforeEach(func() {
+				err = os.MkdirAll(filepath.Join(depsDir, "05"), 0755)
+				Expect(err).To(BeNil())
+			})
+
+			It("removes the dep dir", func() {
 				err = gf.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(buildDir, ".cloudfoundry", "go")).NotTo(BeADirectory())
+				Expect(filepath.Join(depsDir, "05")).To(BeADirectory())
+				Expect(filepath.Join(depsDir, "06")).NotTo(BeADirectory())
 			})
 		})
 

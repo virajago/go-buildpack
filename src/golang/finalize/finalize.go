@@ -353,6 +353,11 @@ func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		err = os.RemoveAll(gf.Stager.DepDir())
+		if err != nil {
+			return err
+		}
 	}
 
 	if os.Getenv("GO_SETUP_GOPATH_IN_IMAGE") == "true" {
