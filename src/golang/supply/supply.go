@@ -1,6 +1,7 @@
 package supply
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"golang"
@@ -38,6 +39,11 @@ func Run(gs *Supplier) error {
 	if err := gs.InstallGo(); err != nil {
 		gs.Stager.Log.Error("Error installing Go: %s", err.Error())
 		return err
+	}
+
+	if err := gs.ConfigureFinalizeEnv(); err != nil {
+		gs.Stager.Log.Error("Error writing environment vars: %s", err.Error())
+		return nil
 	}
 
 	if err := gs.Stager.WriteConfigYml(); err != nil {
@@ -164,6 +170,29 @@ func (gs *Supplier) InstallGo() error {
 	}
 
 	return gs.Stager.WriteEnvFile("GOROOT", filepath.Join(goInstallDir, "go"))
+}
+
+func (gs *Supplier) ConfigureFinalizeEnv() error {
+	if err := gs.Stager.WriteEnvFile("supply_GoVersion", gs.GoVersion); err != nil {
+		return err
+	}
+
+	if err := gs.Stager.WriteEnvFile("supply_VendorTool", gs.VendorTool); err != nil {
+		return err
+	}
+
+	if gs.VendorTool == "godep" {
+		data, err := json.Marshal(&gs.Godep)
+		if err != nil {
+			return err
+		}
+
+		if err := gs.Stager.WriteEnvFile("supply_Godep", string(data)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (gs *Supplier) parseGoVersion(partialGoVersion string) (string, error) {

@@ -376,4 +376,74 @@ var _ = Describe("Supply", func() {
 
 		})
 	})
+
+	Describe("ConfigureFinalizeEnv", func() {
+		BeforeEach(func() {
+			goVersion = "1.3.4"
+		})
+
+		Context("The vendor tool is Godep", func() {
+			BeforeEach(func() {
+				vendorTool = "godep"
+				godep = golang.Godep{
+					ImportPath:      "an-import-path",
+					GoVersion:       "go1.3",
+					Packages:        []string{"package1", "package2"},
+					WorkspaceExists: true,
+				}
+			})
+
+			It("Writes the go version to supply_GoVersion envfile", func() {
+				err = gs.ConfigureFinalizeEnv()
+				Expect(err).To(BeNil())
+
+				contents, err := ioutil.ReadFile(filepath.Join(depsDir, depsIdx, "env", "supply_GoVersion"))
+				Expect(err).To(BeNil())
+				Expect(string(contents)).To(Equal("1.3.4"))
+			})
+
+			It("Writes the vendor tool to supply_VendorTool envfile", func() {
+				err = gs.ConfigureFinalizeEnv()
+				Expect(err).To(BeNil())
+
+				contents, err := ioutil.ReadFile(filepath.Join(depsDir, depsIdx, "env", "supply_VendorTool"))
+				Expect(err).To(BeNil())
+				Expect(string(contents)).To(Equal("godep"))
+			})
+
+			It("Writes the godep info to supply_Godep envfile", func() {
+				godepsJsonContents := `{"ImportPath":"an-import-path","GoVersion":"go1.3","Packages":["package1","package2"],"WorkspaceExists":true}`
+				err = gs.ConfigureFinalizeEnv()
+				Expect(err).To(BeNil())
+
+				contents, err := ioutil.ReadFile(filepath.Join(depsDir, depsIdx, "env", "supply_Godep"))
+				Expect(err).To(BeNil())
+				Expect(string(contents)).To(Equal(godepsJsonContents))
+			})
+		})
+
+		Context("The vendor tool is not Godep", func() {
+			BeforeEach(func() {
+				vendorTool = "glide"
+			})
+
+			It("Writes the go version to supply_GoVersion envfile", func() {
+				err = gs.ConfigureFinalizeEnv()
+				Expect(err).To(BeNil())
+
+				contents, err := ioutil.ReadFile(filepath.Join(depsDir, depsIdx, "env", "supply_GoVersion"))
+				Expect(err).To(BeNil())
+				Expect(string(contents)).To(Equal("1.3.4"))
+			})
+
+			It("Writes the vendor tool to supply_VendorTool envfile", func() {
+				err = gs.ConfigureFinalizeEnv()
+				Expect(err).To(BeNil())
+
+				contents, err := ioutil.ReadFile(filepath.Join(depsDir, depsIdx, "env", "supply_VendorTool"))
+				Expect(err).To(BeNil())
+				Expect(string(contents)).To(Equal("glide"))
+			})
+		})
+	})
 })
