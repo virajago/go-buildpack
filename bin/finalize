@@ -11,7 +11,7 @@ source "$BUILDPACK_DIR/bin/install_go.sh"
 output_dir=$(mktemp -d -t finalizeXXX)
 
 echo "-----> Running go build finalize"
-GOROOT=$CACHE_DIR/go GOPATH=$BUILDPACK_DIR $CACHE_DIR/go/bin/go build -o $output_dir/finalize compile/finalize/cli
+GOROOT=$GoInstallDir/go GOPATH=$BUILDPACK_DIR $GoInstallDir/go/bin/go build -o $output_dir/finalize compile/finalize/cli
 
 $output_dir/finalize "$BUILD_DIR" "$CACHE_DIR" "$DEPS_DIR" "$DEPS_IDX"
 
