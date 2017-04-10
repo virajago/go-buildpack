@@ -4,6 +4,7 @@ set -euo pipefail
 GO_VERSION="1.8.1"
 
 export GoInstallDir="/tmp/go$GO_VERSION"
+mkdir -p $GoInstallDir
 
 if [ ! -f $GoInstallDir/go/bin/go ]; then
   GO_MD5="b05c0cbb28503d038a47d87a6b3b8e86"
