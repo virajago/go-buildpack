@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-export GoInstallDir=$(mktemp -d -t go.installXXX)
+if [ ! -z "${GoInstallDir-}" ]; then
+  export GoInstallDir=$(mktemp -d -t go.installXXX)
+fi
 
 if [ ! -f $GoInstallDir/go/bin/go ]; then
   GO_VERSION="1.8.1"
