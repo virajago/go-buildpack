@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestCompile(t *testing.T) {
+func TestFinalize(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Finalize Suite")
 }

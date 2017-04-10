@@ -1,4 +1,4 @@
-package common_test
+package golang_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestCommon(t *testing.T) {
+func TestGolang(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Common Suite")
+	RunSpecs(t, "Golang Suite")
 }

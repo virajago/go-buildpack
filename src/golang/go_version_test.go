@@ -1,7 +1,7 @@
-package common_test
+package golang_test
 
 import (
-	"golang/common"
+	"golang"
 	"os"
 
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//go:generate mockgen -source=../vendor/github.com/cloudfoundry/libbuildpack/manifest.go --destination=mocks_manifest_test.go --package=common_test --imports=.=github.com/cloudfoundry/libbuildpack
+//go:generate mockgen -source=./vendor/github.com/cloudfoundry/libbuildpack/manifest.go --destination=mocks_manifest_test.go --package=golang_test --imports=.=github.com/cloudfoundry/libbuildpack
 
 var _ = Describe("Vendor", func() {
 	var (
@@ -23,14 +23,14 @@ var _ = Describe("Vendor", func() {
 		err          error
 		vendorTool   string
 		goVersion    string
-		godep        common.Godep
+		godep        golang.Godep
 		mockCtrl     *gomock.Controller
 		mockManifest *MockManifest
 		stager       *libbuildpack.Stager
 	)
 
 	BeforeEach(func() {
-		godep = common.Godep{}
+		godep = golang.Godep{}
 		buffer = new(bytes.Buffer)
 
 		logger = libbuildpack.NewLogger()
@@ -59,12 +59,12 @@ var _ = Describe("Vendor", func() {
 		Context("godep", func() {
 			BeforeEach(func() {
 				vendorTool = "godep"
-				godep = common.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
+				godep = golang.Godep{ImportPath: "go-online", GoVersion: "go1.6"}
 			})
 
 			Context("GOVERSION not set", func() {
 				It("sets the go version from Godeps.json", func() {
-					goVersion, err = common.SelectGoVersion(stager, vendorTool, godep)
+					goVersion, err = golang.SelectGoVersion(stager, vendorTool, godep)
 					Expect(err).To(BeNil())
 
 					Expect(goVersion).To(Equal("1.6.4"))
@@ -86,7 +86,7 @@ var _ = Describe("Vendor", func() {
 				})
 
 				It("sets the go version from GOVERSION and logs a warning", func() {
-					goVersion, err = common.SelectGoVersion(stager, vendorTool, godep)
+					goVersion, err = golang.SelectGoVersion(stager, vendorTool, godep)
 					Expect(err).To(BeNil())
 
 					Expect(goVersion).To(Equal("34.34.0"))
@@ -107,7 +107,7 @@ var _ = Describe("Vendor", func() {
 				})
 
 				It("sets the go version to the default from the manifest.yml", func() {
-					goVersion, err = common.SelectGoVersion(stager, vendorTool, godep)
+					goVersion, err = golang.SelectGoVersion(stager, vendorTool, godep)
 					Expect(err).To(BeNil())
 
 					Expect(goVersion).To(Equal("1.14.3"))
@@ -130,7 +130,7 @@ var _ = Describe("Vendor", func() {
 				})
 
 				It("sets the go version from GOVERSION", func() {
-					goVersion, err = common.SelectGoVersion(stager, vendorTool, godep)
+					goVersion, err = golang.SelectGoVersion(stager, vendorTool, godep)
 					Expect(err).To(BeNil())
 
 					Expect(goVersion).To(Equal("34.34.0"))

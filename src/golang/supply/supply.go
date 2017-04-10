@@ -43,8 +43,8 @@ func (gs *Supplier) InstallVendorTools() error {
 		if err := gs.Stager.AddBinDependencyLink(filepath.Join(installDir, "bin", tool), tool); err != nil {
 			return err
 		}
-
 	}
+
 	return nil
 }
 

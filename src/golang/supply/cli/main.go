@@ -1,7 +1,7 @@
 package main
 
 import (
-	"golang/common"
+	"golang"
 	"golang/supply"
 	"os"
 
@@ -27,15 +27,15 @@ func main() {
 		os.Exit(13)
 	}
 
-	var godep common.Godep
+	var godep golang.Godep
 
-	vendorTool, err := common.SelectVendorTool(stager, &godep)
+	vendorTool, err := golang.SelectVendorTool(stager, &godep)
 	if err != nil {
 		stager.Log.Error("Unable to select Go vendor tool: %s", err.Error())
 		os.Exit(14)
 	}
 
-	goVersion, err := common.SelectGoVersion(stager, vendorTool, godep)
+	goVersion, err := golang.SelectGoVersion(stager, vendorTool, godep)
 	if err != nil {
 		stager.Log.Error("Unable to select Go version: %s", err.Error())
 		os.Exit(15)

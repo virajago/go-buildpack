@@ -3,7 +3,7 @@ package finalize
 import (
 	"errors"
 	"fmt"
-	"golang/common"
+	"golang"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,7 +17,7 @@ type Finalizer struct {
 	Stager           *libbuildpack.Stager
 	VendorTool       string
 	GoVersion        string
-	Godep            common.Godep
+	Godep            golang.Godep
 	MainPackageName  string
 	GoPath           string
 	PackageList      []string
@@ -92,7 +92,7 @@ func (gf *Finalizer) SetMainPackageName() error {
 	case "go_nativevendoring":
 		gf.MainPackageName = os.Getenv("GOPACKAGENAME")
 		if gf.MainPackageName == "" {
-			gf.Stager.Log.Error(common.NoGOPACKAGENAMEerror())
+			gf.Stager.Log.Error(golang.NoGOPACKAGENAMEerror())
 			return errors.New("GOPACKAGENAME unset")
 		}
 
@@ -243,7 +243,7 @@ func (gf *Finalizer) HandleVendorExperiment() error {
 
 	go16 := ver.Major() == 1 && ver.Minor() == 6
 	if !go16 {
-		gf.Stager.Log.Error(common.UnsupportedGO15VENDOREXPERIMENTerror())
+		gf.Stager.Log.Error(golang.UnsupportedGO15VENDOREXPERIMENTerror())
 		return errors.New("unsupported GO15VENDOREXPERIMENT")
 	}
 
@@ -269,7 +269,7 @@ func (gf *Finalizer) SetInstallPackages() error {
 		useVendorDir := gf.VendorExperiment && !gf.Godep.WorkspaceExists
 
 		if gf.Godep.WorkspaceExists && vendorDirExists {
-			gf.Stager.Log.Warning(common.GodepsWorkspaceWarning())
+			gf.Stager.Log.Warning(golang.GodepsWorkspaceWarning())
 		}
 
 		if useVendorDir && !vendorDirExists {
@@ -277,7 +277,7 @@ func (gf *Finalizer) SetInstallPackages() error {
 		}
 
 		if len(packages) != 0 {
-			gf.Stager.Log.Warning(common.PackageSpecOverride(packages))
+			gf.Stager.Log.Warning(golang.PackageSpecOverride(packages))
 		} else if len(gf.Godep.Packages) != 0 {
 			packages = gf.Godep.Packages
 		} else {
@@ -290,7 +290,7 @@ func (gf *Finalizer) SetInstallPackages() error {
 		}
 	} else {
 		if !gf.VendorExperiment && gf.VendorTool == "go_nativevendoring" {
-			gf.Stager.Log.Error(common.MustUseVendorError())
+			gf.Stager.Log.Error(golang.MustUseVendorError())
 			return errors.New("must use vendor/ for go native vendoring")
 		}
 
@@ -330,7 +330,7 @@ func (gf *Finalizer) CompileApp() error {
 }
 
 func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
-	err := ioutil.WriteFile(filepath.Join(tempDir, "buildpack-release-step.yml"), []byte(common.ReleaseYAML(gf.MainPackageName)), 0644)
+	err := ioutil.WriteFile(filepath.Join(tempDir, "buildpack-release-step.yml"), []byte(golang.ReleaseYAML(gf.MainPackageName)), 0644)
 	if err != nil {
 		gf.Stager.Log.Error("Unable to write relase yml: %s", err.Error())
 		return err
@@ -349,7 +349,7 @@ func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
 			return err
 		}
 
-		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "goroot.sh", common.GoRootScript())
+		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "goroot.sh", golang.GoRootScript())
 		if err != nil {
 			return err
 		}
@@ -362,13 +362,13 @@ func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
 			return err
 		}
 
-		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "zzgopath.sh", common.ZZGoPathScript(gf.MainPackageName))
+		err = libbuildpack.WriteProfileD(gf.Stager.BuildDir, "zzgopath.sh", golang.ZZGoPathScript(gf.MainPackageName))
 		if err != nil {
 			return err
 		}
 	}
 
-	return libbuildpack.WriteProfileD(gf.Stager.BuildDir, "go.sh", common.GoScript())
+	return libbuildpack.WriteProfileD(gf.Stager.BuildDir, "go.sh", golang.GoScript())
 }
 
 func (gf *Finalizer) mainPackagePath() string {

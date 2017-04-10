@@ -1,7 +1,7 @@
-package common_test
+package golang_test
 
 import (
-	"golang/common"
+	"golang"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -22,7 +22,7 @@ var _ = Describe("Vendor", func() {
 		buffer     *bytes.Buffer
 		err        error
 		vendorTool string
-		godep      common.Godep
+		godep      golang.Godep
 		stager     *libbuildpack.Stager
 	)
 
@@ -30,7 +30,7 @@ var _ = Describe("Vendor", func() {
 		buildDir, err = ioutil.TempDir("", "go-buildpack.build")
 		Expect(err).To(BeNil())
 
-		godep = common.Godep{}
+		godep = golang.Godep{}
 
 		buffer = new(bytes.Buffer)
 
@@ -75,19 +75,19 @@ var _ = Describe("Vendor", func() {
 `
 				})
 				It("sets the tool to godep", func() {
-					vendorTool, err = common.SelectVendorTool(stager, &godep)
+					vendorTool, err = golang.SelectVendorTool(stager, &godep)
 					Expect(err).To(BeNil())
 
 					Expect(vendorTool).To(Equal("godep"))
 				})
 				It("logs that it is checking the Godeps.json file", func() {
-					_, err = common.SelectVendorTool(stager, &godep)
+					_, err = golang.SelectVendorTool(stager, &godep)
 					Expect(err).To(BeNil())
 
 					Expect(buffer.String()).To(ContainSubstring("-----> Checking Godeps/Godeps.json file"))
 				})
 				It("stores the Godep info in the GoCompiler struct", func() {
-					_, err = common.SelectVendorTool(stager, &godep)
+					_, err = golang.SelectVendorTool(stager, &godep)
 					Expect(err).To(BeNil())
 
 					Expect(godep.ImportPath).To(Equal("go-online"))
@@ -104,7 +104,7 @@ var _ = Describe("Vendor", func() {
 					})
 
 					It("sets Godep.WorkspaceExists to true", func() {
-						_, err = common.SelectVendorTool(stager, &godep)
+						_, err = golang.SelectVendorTool(stager, &godep)
 						Expect(err).To(BeNil())
 
 						Expect(godep.WorkspaceExists).To(BeTrue())
@@ -113,7 +113,7 @@ var _ = Describe("Vendor", func() {
 
 				Context("godeps workspace does not exist", func() {
 					It("sets Godep.WorkspaceExists to false", func() {
-						_, err = common.SelectVendorTool(stager, &godep)
+						_, err = golang.SelectVendorTool(stager, &godep)
 						Expect(err).To(BeNil())
 
 						Expect(godep.WorkspaceExists).To(BeFalse())
@@ -127,7 +127,7 @@ var _ = Describe("Vendor", func() {
 				})
 
 				It("logs that the Godeps.json file is invalid and returns an error", func() {
-					_, err = common.SelectVendorTool(stager, &godep)
+					_, err = golang.SelectVendorTool(stager, &godep)
 					Expect(err).NotTo(BeNil())
 
 					Expect(buffer.String()).To(ContainSubstring("**ERROR** Bad Godeps/Godeps.json file"))
@@ -141,7 +141,7 @@ var _ = Describe("Vendor", func() {
 			})
 
 			It("logs that .godir is deprecated and returns an error", func() {
-				_, err = common.SelectVendorTool(stager, &godep)
+				_, err = golang.SelectVendorTool(stager, &godep)
 				Expect(err).NotTo(BeNil())
 
 				Expect(buffer.String()).To(ContainSubstring("**ERROR** Deprecated, .godir file found! Please update to supported Godep or Glide dependency managers."))
@@ -156,7 +156,7 @@ var _ = Describe("Vendor", func() {
 			})
 
 			It("sets the tool to glide", func() {
-				vendorTool, err = common.SelectVendorTool(stager, &godep)
+				vendorTool, err = golang.SelectVendorTool(stager, &godep)
 				Expect(err).To(BeNil())
 
 				Expect(vendorTool).To(Equal("glide"))
@@ -173,7 +173,7 @@ var _ = Describe("Vendor", func() {
 			})
 
 			It("logs that gb is deprecated and returns an error", func() {
-				_, err = common.SelectVendorTool(stager, &godep)
+				_, err = golang.SelectVendorTool(stager, &godep)
 				Expect(err).NotTo(BeNil())
 
 				Expect(buffer.String()).To(ContainSubstring("**ERROR** Cloud Foundry does not support the GB package manager."))
@@ -185,7 +185,7 @@ var _ = Describe("Vendor", func() {
 
 		Context("none of the above", func() {
 			It("sets the tool to go_nativevendoring", func() {
-				vendorTool, err = common.SelectVendorTool(stager, &godep)
+				vendorTool, err = golang.SelectVendorTool(stager, &godep)
 				Expect(err).To(BeNil())
 
 				Expect(vendorTool).To(Equal("go_nativevendoring"))
