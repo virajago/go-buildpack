@@ -47,6 +47,9 @@ func (gs *Supplier) InstallVendorTools() error {
 }
 
 func (gs *Supplier) InstallGo() error {
+
+	//!libbuildpack.Stager.Manifest.isCached() then install go into cache dir
+
 	goInstallDir := filepath.Join(gs.Stager.DepDir(), "go"+gs.GoVersion)
 
 	dep := libbuildpack.Dependency{Name: "go", Version: gs.GoVersion}
@@ -58,5 +61,8 @@ func (gs *Supplier) InstallGo() error {
 		return err
 	}
 
+
 	return gs.Stager.WriteEnvFile("GOROOT", filepath.Join(goInstallDir, "go"))
 }
+
+
