@@ -1,8 +1,8 @@
 package finalize_test
 
 import (
-	"golang/finalize"
 	"golang/common"
+	"golang/finalize"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,7 +16,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"fmt"
 )
 
 //go:generate mockgen -source=../vendor/github.com/cloudfoundry/libbuildpack/manifest.go --destination=mocks_manifest_test.go --package=finalize_test --imports=.=github.com/cloudfoundry/libbuildpack
@@ -24,8 +23,8 @@ import (
 
 var _ = Describe("Finalize", func() {
 	var (
-		vendorTool        string
-		buildDir           string
+		vendorTool string
+		buildDir   string
 		//cacheDir          string
 		depsDir           string
 		depsIdx           string
@@ -71,21 +70,21 @@ var _ = Describe("Finalize", func() {
 			BuildDir: buildDir,
 			//CacheDir:                       cacheDir,
 			DepsDir:  depsDir,
-			DepsIdx: depsIdx,
+			DepsIdx:  depsIdx,
 			Manifest: mockManifest,
 			Log:      logger,
 			Command:  mockCommandRunner,
 		}
 
 		gf = &finalize.Finalizer{Stager: bpc,
-			VendorTool:              vendorTool,
-			GoVersion:               goVersion,
-			MainPackageName:         mainPackageName,
-			GoPath:                  goPath,
-			PackageList:             packageList,
-			BuildFlags:              buildFlags,
-			Godep:                   godep,
-			VendorExperiment:        vendorExperiment,
+			VendorTool:       vendorTool,
+			GoVersion:        goVersion,
+			MainPackageName:  mainPackageName,
+			GoPath:           goPath,
+			PackageList:      packageList,
+			BuildFlags:       buildFlags,
+			Godep:            godep,
+			VendorExperiment: vendorExperiment,
 		}
 	})
 
@@ -128,7 +127,6 @@ var _ = Describe("Finalize", func() {
 
 				err = gf.SetMainPackageName()
 				Expect(err).To(BeNil())
-				fmt.Printf("main package name: %s", gf.MainPackageName)
 				Expect(gf.MainPackageName).To(Equal("go-package-name"))
 			})
 		})
