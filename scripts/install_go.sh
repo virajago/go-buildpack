@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ ! -z "${GoInstallDir-}" ]; then
+if [ -z "${GoInstallDir-}" ]; then
   export GoInstallDir=$(mktemp -d -t go.installXXX)
 fi
 
