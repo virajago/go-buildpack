@@ -23,9 +23,8 @@ import (
 
 var _ = Describe("Finalize", func() {
 	var (
-		vendorTool string
-		buildDir   string
-		//cacheDir          string
+		vendorTool        string
+		buildDir          string
 		depsDir           string
 		depsIdx           string
 		gf                *finalize.Finalizer
@@ -52,8 +51,6 @@ var _ = Describe("Finalize", func() {
 
 		buildDir, err = ioutil.TempDir("", "go-buildpack.build.")
 		Expect(err).To(BeNil())
-		//cacheDir, err = ioutil.TempDir("", "go-buildpack.cache.")
-		Expect(err).To(BeNil())
 
 		buffer = new(bytes.Buffer)
 
@@ -68,7 +65,6 @@ var _ = Describe("Finalize", func() {
 	JustBeforeEach(func() {
 		bpc := &libbuildpack.Stager{
 			BuildDir: buildDir,
-			//CacheDir:                       cacheDir,
 			DepsDir:  depsDir,
 			DepsIdx:  depsIdx,
 			Manifest: mockManifest,
@@ -93,9 +89,6 @@ var _ = Describe("Finalize", func() {
 
 		err = os.RemoveAll(buildDir)
 		Expect(err).To(BeNil())
-
-		//err = os.RemoveAll(cacheDir)
-		//Expect(err).To(BeNil())
 	})
 
 	Describe("SetMainPackageName", func() {

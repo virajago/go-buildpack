@@ -104,78 +104,29 @@ var _ = Describe("Supply", func() {
 			goVersion = "1.3.4"
 			goInstallDir = filepath.Join(depsDir, depsIdx, "go1.3.4")
 			dep = libbuildpack.Dependency{Name: "go", Version: "1.3.4"}
+			err = os.MkdirAll(filepath.Join(goInstallDir, "go"), 0755)
+			Expect(err).To(BeNil())
+			mockManifest.EXPECT().InstallDependency(dep, goInstallDir).Return(nil)
 		})
 
-		//Context("go is already cached", func() {
-		//	BeforeEach(func() {
-		//		err = os.MkdirAll(filepath.Join(goInstallDir, "go"), 0755)
-		//		Expect(err).To(BeNil())
-		//	})
-		//
-		//	It("uses the cached version", func() {
-		//		err = gc.InstallGo()
-		//		Expect(err).To(BeNil())
-		//
-		//		Expect(buffer.String()).To(ContainSubstring("-----> Using go 1.3.4"))
-		//	})
-		//
-		//	It("Creates a bin directory", func() {
-		//		err = gc.InstallGo()
-		//		Expect(err).To(BeNil())
-		//
-		//		Expect(filepath.Join(buildDir, "bin")).To(BeADirectory())
-		//	})
-		//
-		//	It("Sets up GOROOT", func() {
-		//		err = gc.InstallGo()
-		//		Expect(err).To(BeNil())
-		//
-		//		Expect(os.Getenv("GOROOT")).To(Equal(filepath.Join(goInstallDir, "go")))
-		//	})
-		//
-		//	It("adds go to the PATH", func() {
-		//		err = gc.InstallGo()
-		//		Expect(err).To(BeNil())
-		//
-		//		newPath := fmt.Sprintf("%s:%s", filepath.Join(goInstallDir, "go", "bin"), oldPath)
-		//		Expect(os.Getenv("PATH")).To(Equal(newPath))
-		//	})
-		//})
+		It("Write GOROOT to envfile", func() {
+			err = gs.InstallGo()
+			Expect(err).To(BeNil())
 
-		// cached buildpack
-		Context("go is not already in cache", func() {
-			BeforeEach(func() {
-				err = os.MkdirAll(filepath.Join(goInstallDir, "go"), 0755)
-				Expect(err).To(BeNil())
-				mockManifest.EXPECT().InstallDependency(dep, goInstallDir).Return(nil)
-			})
+			contents, err := ioutil.ReadFile(filepath.Join(depsDir, depsIdx, "env", "GOROOT"))
+			Expect(err).To(BeNil())
+			Expect(string(contents)).To(Equal(filepath.Join(goInstallDir, "go")))
+		})
 
-			It("Write GOROOT to envfile", func() {
-				err = gs.InstallGo()
-				Expect(err).To(BeNil())
+		It("installs go to the depDir, creating a symlink in <depDir>/bin", func() {
+			err = gs.InstallGo()
+			Expect(err).To(BeNil())
 
-				contents, err := ioutil.ReadFile(filepath.Join(depsDir, depsIdx, "env", "GOROOT"))
-				Expect(err).To(BeNil())
-				Expect(string(contents)).To(Equal(filepath.Join(goInstallDir, "go")))
-			})
+			link, err := os.Readlink(filepath.Join(depsDir, depsIdx, "bin", "go"))
+			Expect(err).To(BeNil())
 
-			It("installs go to the depDir, creating a symlink in <depDir>/bin", func() {
-				err = gs.InstallGo()
-				Expect(err).To(BeNil())
+			Expect(link).To(Equal("../go1.3.4/go/bin/go"))
 
-				link, err := os.Readlink(filepath.Join(depsDir, depsIdx, "bin", "go"))
-				Expect(err).To(BeNil())
-
-				Expect(link).To(Equal("../go1.3.4/go/bin/go"))
-
-			})
-
-			//It("clears the cache", func() {
-			//	err = gs.InstallGo()
-			//	Expect(err).To(BeNil())
-			//
-			//	Expect(filepath.Join(cacheDir, "go4.3.2", "go")).NotTo(BeADirectory())
-			//})
 		})
 	})
 })
