@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "golang/hooks"
 	"golang/supply"
 	"os"
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"golang"
 	"golang/finalize"
+	_ "golang/hooks"
 	"os"
 
 	"github.com/cloudfoundry/libbuildpack"

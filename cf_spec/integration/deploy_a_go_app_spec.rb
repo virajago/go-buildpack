@@ -378,7 +378,7 @@ describe 'CF Go Buildpack' do
     let(:app) { Machete.deploy_app(app_name, buildpack: buildpack, skip_verify_version: true) }
     before do
       buildpack_file = "/tmp/#{buildpack}.zip"
-      Open3.capture2e('zip','-r',buildpack_file,'bin/','src/','manifest.yml','VERSION')[1].success? or raise 'Coudl not create unpackaged buildpack zip file'
+      Open3.capture2e('zip','-r',buildpack_file,'bin/','src/', 'scripts/', 'manifest.yml','VERSION')[1].success? or raise 'Could not create unpackaged buildpack zip file'
       Open3.capture2e('cf', 'create-buildpack', buildpack, buildpack_file, '100', '--enable')[1].success? or raise 'Could not upload buildpack'
       FileUtils.rm buildpack_file
     end
