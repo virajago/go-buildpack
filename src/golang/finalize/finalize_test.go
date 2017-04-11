@@ -934,10 +934,10 @@ default_process_types:
 
 		Context("GO_INSTALL_TOOLS_IN_IMAGE is not set", func() {
 			BeforeEach(func() {
-				err = os.MkdirAll(filepath.Join(depsDir, "06", "go1.2.3"), 0755)
+				err = os.MkdirAll(filepath.Join(depsDir, "06", "go3.4.5"), 0755)
 				Expect(err).To(BeNil())
 
-				err = ioutil.WriteFile(filepath.Join(depsDir, "06", "go1.2.3", "thing.txt"), []byte("abc"), 0644)
+				err = ioutil.WriteFile(filepath.Join(depsDir, "06", "go3.4.5", "thing.txt"), []byte("abc"), 0644)
 				Expect(err).To(BeNil())
 
 				err = ioutil.WriteFile(filepath.Join(depsDir, "06", "config.yml"), []byte("some yaml"), 0644)
@@ -948,7 +948,7 @@ default_process_types:
 				err = gf.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(depsDir, "06", "go1.2.3")).NotTo(BeADirectory())
+				Expect(filepath.Join(depsDir, "06", "go3.4.5")).NotTo(BeADirectory())
 
 				content, err := ioutil.ReadFile(filepath.Join(filepath.Join(depsDir, "06"), "config.yml"))
 				Expect(err).To(BeNil())
@@ -970,18 +970,18 @@ default_process_types:
 				Expect(err).To(BeNil())
 			})
 
-			It("copies the go toolchain", func() {
+			It("does not remove the go toolchain", func() {
 				err = gf.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
-				Expect(filepath.Join(buildDir, ".cloudfoundry", "go")).To(BeADirectory())
+				Expect(filepath.Join(depsDir, "06", "go3.4.5")).To(BeADirectory())
 			})
 
 			It("logs that the tool chain was copied", func() {
 				err = gf.CreateStartupEnvironment(tempDir)
 				Expect(err).To(BeNil())
 
-				Expect(buffer.String()).To(ContainSubstring("-----> Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go"))
+				Expect(buffer.String()).To(ContainSubstring("-----> Leaving go tool chain in $GOROOT=$DEPS_DIR/06/go3.4.5/go"))
 			})
 
 			It("writes the goroot.sh script to <depDir>/profile.d", func() {
@@ -991,7 +991,7 @@ default_process_types:
 				contents, err := ioutil.ReadFile(filepath.Join(gf.Stager.DepDir(), "profile.d", "goroot.sh"))
 				Expect(err).To(BeNil())
 
-				Expect(string(contents)).To(ContainSubstring("export GOROOT=$HOME/.cloudfoundry/go"))
+				Expect(string(contents)).To(ContainSubstring("export GOROOT=$DEPS_DIR/06/go3.4.5/go"))
 				Expect(string(contents)).To(ContainSubstring("PATH=$PATH:$GOROOT/bin"))
 			})
 		})
