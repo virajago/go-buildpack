@@ -191,6 +191,9 @@ var _ = Describe("Finalize", func() {
 
 			err = ioutil.WriteFile(filepath.Join(buildDir, ".profile"), []byte("xx"), 0644)
 			Expect(err).To(BeNil())
+
+			err = os.MkdirAll(filepath.Join(buildDir, ".cloudfoundry"), 0755)
+			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
@@ -247,6 +250,7 @@ var _ = Describe("Finalize", func() {
 		Context("GO_SETUP_GOPATH_IN_IMAGE = true", func() {
 			BeforeEach(func() {
 				err = os.Setenv("GO_SETUP_GOPATH_IN_IMAGE", "true")
+				Expect(err).To(BeNil())
 			})
 
 			It("sets GOPATH to the build directory", func() {
@@ -286,6 +290,14 @@ var _ = Describe("Finalize", func() {
 
 				Expect(filepath.Join(gf.GoPath, "src", mainPackageName, ".profile")).NotTo(BeAnExistingFile())
 				Expect(filepath.Join(buildDir, ".profile")).To(BeAnExistingFile())
+			})
+
+			It("does not move the .cloudfoundry directory", func() {
+				err = gf.SetupGoPath()
+				Expect(err).To(BeNil())
+
+				Expect(filepath.Join(gf.GoPath, "src", mainPackageName, ".cloudfoundry")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(buildDir, ".cloudfoundry")).To(BeAnExistingFile())
 			})
 
 			It("does not set GOBIN", func() {

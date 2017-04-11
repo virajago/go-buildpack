@@ -104,9 +104,10 @@ func (gf *Finalizer) SetMainPackageName() error {
 
 func (gf *Finalizer) SetupGoPath() error {
 	var skipMoveFile = map[string]bool{
-		"Procfile": true,
-		".profile": true,
-		"src":      true,
+		".cloudfoundry": true,
+		"Procfile":      true,
+		".profile":      true,
+		"src":           true,
 	}
 
 	var goPath string
