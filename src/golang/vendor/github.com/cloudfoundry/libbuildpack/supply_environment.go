@@ -122,16 +122,20 @@ func SetLaunchEnvironment(depsDir, buildDir string) error {
 }
 
 func existingDepsDirs(depsDir, subDir, prefix string) ([]string, error) {
-	dirs, err := ioutil.ReadDir(depsDir)
+	files, err := ioutil.ReadDir(depsDir)
 	if err != nil {
 		return nil, err
 	}
 
 	var existingDirs []string
 
-	for _, dir := range dirs {
-		filesystemDir := filepath.Join(depsDir, dir.Name(), subDir)
-		dirToJoin := filepath.Join(prefix, dir.Name(), subDir)
+	for _, file := range files {
+		if !file.IsDir() {
+			continue
+		}
+
+		filesystemDir := filepath.Join(depsDir, file.Name(), subDir)
+		dirToJoin := filepath.Join(prefix, file.Name(), subDir)
 
 		addToDirs, err := FileExists(filesystemDir)
 		if err != nil {
