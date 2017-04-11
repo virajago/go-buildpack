@@ -391,7 +391,8 @@ describe 'CF Go Buildpack' do
 
       it 'runs' do
         expect(app).to be_running
-        expect(app).to have_logged(/Running go build compile/)
+        expect(app).to have_logged(/Running go build supply/)
+        expect(app).to have_logged(/Running go build finalize/)
 
         browser.visit_path('/')
         expect(browser).to have_body('go, world')
