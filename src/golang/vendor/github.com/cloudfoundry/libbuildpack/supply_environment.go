@@ -83,7 +83,7 @@ func SetLaunchEnvironment(depsDir, buildDir string) error {
 		return err
 	}
 
-	scriptLocation := filepath.Join(buildDir, ".profile.d", "0000-multi-supply.sh")
+	scriptLocation := filepath.Join(buildDir, ".profile.d", "000-multi-supply.sh")
 	if err := writeToFile(strings.NewReader(scriptContents), scriptLocation, 0755); err != nil {
 		return err
 	}

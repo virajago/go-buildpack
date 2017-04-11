@@ -17,11 +17,11 @@ func GoScript() string {
 	return "PATH=$PATH:$HOME/bin"
 }
 
-func GoRootScript() string {
-	contents := `export GOROOT=$HOME/.cloudfoundry/go
+func GoRootScript(goRoot string) string {
+	contents := `export GOROOT=%s
 PATH=$PATH:$GOROOT/bin`
 
-	return contents
+	return fmt.Sprintf(contents, goRoot)
 }
 
 func ZZGoPathScript(mainPackageName string) string {

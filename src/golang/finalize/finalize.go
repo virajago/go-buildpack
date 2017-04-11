@@ -338,18 +338,11 @@ func (gf *Finalizer) CreateStartupEnvironment(tempDir string) error {
 	}
 
 	if os.Getenv("GO_INSTALL_TOOLS_IN_IMAGE") == "true" {
-		gf.Stager.Log.BeginStep("Copying go tool chain to $GOROOT=$HOME/.cloudfoundry/go")
+		goRuntimeLocation := filepath.Join("$DEPS_DIR", gf.Stager.DepsIdx, "go"+gf.GoVersion, "go")
 
-		imageDir := filepath.Join(gf.Stager.BuildDir, ".cloudfoundry")
-		if err := os.MkdirAll(imageDir, 0755); err != nil {
-			return err
-		}
+		gf.Stager.Log.BeginStep("Leaving go tool chain in $GOROOT=%s", goRuntimeLocation)
 
-		if err := libbuildpack.CopyDirectory(gf.goInstallLocation(), imageDir); err != nil {
-			return err
-		}
-
-		if err := gf.Stager.WriteProfileD("goroot.sh", golang.GoRootScript()); err != nil {
+		if err := gf.Stager.WriteProfileD("goroot.sh", golang.GoRootScript(goRuntimeLocation)); err != nil {
 			return err
 		}
 	} else {
